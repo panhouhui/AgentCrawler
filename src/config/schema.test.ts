@@ -175,6 +175,15 @@ describe("agentDefinitionSchema", () => {
     expect(result.provider).toBe("agent-sdk");
   });
 
+  test("valid provider 'minimax' parses", () => {
+    const result = agentDefinitionSchema.parse({
+      id: "test",
+      name: "Test",
+      provider: "minimax",
+    });
+    expect(result.provider).toBe("minimax");
+  });
+
   test("invalid provider is rejected", () => {
     expect(() =>
       agentDefinitionSchema.parse({ id: "test", name: "Test", provider: "openai" }),

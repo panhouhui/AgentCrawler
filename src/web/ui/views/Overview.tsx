@@ -1,16 +1,27 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { apiFetch, getToken, setToken, clearToken } from "../api";
-import { formatUptime, formatNumber, formatCountdown, formatCost } from "../lib/format";
-import { cn } from "../lib/cn";
-import { Button, Input } from "../components";
+import React, { useCallback, useEffect, useState } from "react";
 import {
-  Clock, Users, Shield, Key, Send, MessageCircle, Zap,
-  Bot, Cpu, DollarSign, Database, Timer,
-  CheckCircle, AlertTriangle, XCircle,
+  Activity,
+  AlertTriangle,
+  Bot,
+  CheckCircle,
+  Clock,
+  Cpu,
+  Database,
+  DollarSign,
+  Key,
+  MessageCircle,
+  Send,
+  Shield,
+  Timer,
+  Users,
+  XCircle,
+  Zap,
 } from "lucide-react";
+import { apiFetch, clearToken, getToken, setToken } from "../api";
+import { AppLogo, Button, Input } from "../components";
 import { useSystemEvents } from "../hooks/useSystemEvents";
-
-/* ─── API response types ─── */
+import { cn } from "../lib/cn";
+import { formatCost, formatCountdown, formatNumber, formatUptime } from "../lib/format";
 
 interface ChannelInfo {
   status: string;
@@ -59,26 +70,49 @@ interface AgentItem {
   name: string;
 }
 
-/* ─── Helpers ─── */
-
 type SystemStatus = "online" | "partial" | "offline" | "loading";
 
 function deriveStatus(
   status: StatusData | null,
   channelEntries: [string, ChannelInfo][],
+  processes: readonly ProcessHealth[] | null,
+  cron: CronStatus | null,
 ): { label: string; variant: SystemStatus; connectedCount: number } {
-  if (!status) return { label: "Loading", variant: "loading", connectedCount: 0 };
+  if (!status) return { label: "加载中", variant: "loading", connectedCount: 0 };
 
   const connectedCount = channelEntries.filter(
-    ([, v]) => v.status === "connected",
+    ([, value]) => value.status === "connected",
   ).length;
-  const allConnected =
-    channelEntries.length > 0 && connectedCount === channelEntries.length;
-  const anyConnected = connectedCount > 0;
 
-  if (allConnected) return { label: "All Systems Online", variant: "online", connectedCount };
-  if (anyConnected) return { label: "Partial Connectivity", variant: "partial", connectedCount };
-  return { label: "Systems Offline", variant: "offline", connectedCount };
+  if (processes && processes.length > 0) {
+    const criticalNames = new Set(["core", "web"]);
+    const criticalProcesses = processes.filter((process) =>
+      criticalNames.has(process.name.toLowerCase()),
+    );
+    const processScope = criticalProcesses.length > 0 ? criticalProcesses : processes;
+    const aliveCount = processScope.filter((process) => process.status === "alive").length;
+
+    if (aliveCount === processScope.length) {
+      return { label: "系统运行正常", variant: "online", connectedCount };
+    }
+    if (aliveCount > 0) {
+      return { label: "部分进程异常", variant: "partial", connectedCount };
+    }
+    return { label: "关键进程离线", variant: "offline", connectedCount };
+  }
+
+  if (cron && !cron.running) {
+    return { label: "调度器未运行", variant: "partial", connectedCount };
+  }
+
+  return { label: "系统在线", variant: "online", connectedCount };
+}
+
+function statusText(variant: SystemStatus): string {
+  if (variant === "online") return "运行正常";
+  if (variant === "partial") return "需要关注";
+  if (variant === "offline") return "离线";
+  return "加载中";
 }
 
 function uptimePercent(uptimeSeconds: number): number {
@@ -86,15 +120,39 @@ function uptimePercent(uptimeSeconds: number): number {
   return Math.min((uptimeSeconds / maxDisplay) * 100, 100);
 }
 
+function formatVersionLabel(version: string): string {
+  if (!version) return "未知版本";
+  return version === "preview" ? "预览版" : `v${version}`;
+}
 
-/* ─── Component ─── */
+function formatChannelName(name: string): string {
+  const cleaned = name.replace(/^Agent:/i, "").trim();
+  return cleaned || "未命名渠道";
+}
+
+const PROCESS_LABELS: Record<string, string> = {
+  core: "核心服务",
+  web: "前端服务",
+  cron: "定时任务",
+  ingestion: "采集进程",
+  sige: "情报分析",
+};
+
+function processLabel(name: string): string {
+  return PROCESS_LABELS[name.toLowerCase()] ?? name;
+}
+
+function processStatusLabel(status: ProcessHealth["status"]): string {
+  if (status === "alive") return "健康";
+  if (status === "stale") return "延迟";
+  return "离线";
+}
 
 export default function Overview() {
   const [status, setStatus] = useState<StatusData | null>(null);
   const [error, setError] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [tokenMsg, setTokenMsg] = useState("");
-
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [agents, setAgents] = useState<readonly AgentItem[] | null>(null);
   const [processes, setProcesses] = useState<readonly ProcessHealth[] | null>(null);
@@ -119,7 +177,7 @@ export default function Overview() {
       setStatus(data);
       setError("");
     } catch {
-      setError("Failed to connect to system");
+      setError("连接系统失败，请确认服务正在运行。");
     }
   }, []);
 
@@ -142,8 +200,9 @@ export default function Overview() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchStatus();
+    void fetchStatus();
     void fetchExtras(controller.signal);
+
     if (!wsConnected) {
       const interval = setInterval(fetchStatus, 10000);
       return () => {
@@ -151,31 +210,31 @@ export default function Overview() {
         controller.abort();
       };
     }
-    return () => controller.abort();
-  }, [wsConnected, fetchStatus, fetchExtras]);
 
-  async function handleTokenSave(e: React.FormEvent) {
-    e.preventDefault();
+    return () => controller.abort();
+  }, [fetchStatus, fetchExtras, wsConnected]);
+
+  async function handleTokenSave(event: React.FormEvent) {
+    event.preventDefault();
     if (!tokenInput.trim()) return;
+
     setToken(tokenInput.trim());
     try {
       await apiFetch<StatusData>("/api/status");
-      setTokenMsg("Token saved.");
+      setTokenMsg("令牌已保存。");
       setTokenInput("");
-      // fetchExtras is fire-and-forget here; the component is still mounted
-      // so abort-on-unmount is handled by the main effect above.
       void fetchExtras(new AbortController().signal);
     } catch {
       clearToken();
-      setTokenMsg("Invalid token.");
+      setTokenMsg("令牌无效，请重新输入。");
     }
   }
 
   const channelEntries = status ? Object.entries(status.channels) : [];
   const { label: statusLabel, variant: statusVariant, connectedCount } =
-    deriveStatus(status, channelEntries);
+    deriveStatus(status, channelEntries, processes, cron);
 
-  const aliveProcesses = processes?.filter((p) => p.status === "alive").length ?? 0;
+  const aliveProcesses = processes?.filter((process) => process.status === "alive").length ?? 0;
   const totalProcesses = processes?.length ?? 0;
   const totalTokens = usage
     ? usage.totalInputTokens + usage.totalOutputTokens
@@ -183,208 +242,143 @@ export default function Overview() {
 
   return (
     <div className="ov-root">
-      {/* Hero */}
-      <div className="ov-hero">
-        <div className="ov-orb-wrap">
-          <div className="ov-orb-ring-outer" />
-          <div className="ov-orb-ring" />
-          <div className={`ov-orb ov-orb--${statusVariant}`}>
-            <img
-              src="/logo.png"
-              alt="OpenCrow"
-              className="ov-orb-logo"
-            />
+      <section className="ov-hero" aria-label="AgentHub 总览">
+        <div className="ov-hero-main">
+          <div className={`ov-brand-mark ov-brand-mark--${statusVariant}`}>
+            <AppLogo size="hero" />
+            <span className={`ov-brand-pulse ov-brand-pulse--${statusVariant}`} />
+          </div>
+
+          <div className="ov-hero-copy">
+            <div className="ov-kicker">
+              <Activity size={14} />
+              智能体运行中枢
+            </div>
+            <h2 className="ov-title" data-no-localize="true">
+              AgentHub
+            </h2>
+            <p className="ov-subtitle">
+              聚合爬虫、社交智能体、Kan 推送和系统调度状态。
+            </p>
+            <div className={`ov-hero-badge ov-hero-badge--${statusVariant}`}>
+              <span className={`ov-hero-dot ov-hero-dot--${statusVariant}`} />
+              {statusLabel}
+            </div>
           </div>
         </div>
 
-        <div className="ov-hero-text">
-          <h2 className="ov-title">
-            <span className="ov-title-gradient">OpenCrow</span>
-          </h2>
-          <div className="ov-subtitle">
-            {status ? (
-              <>
-                <span>v{status.version}</span>
-                <span className="ov-subtitle-sep">/</span>
-                <span>{channelEntries.length} channels</span>
-                <span className="ov-subtitle-sep">/</span>
-                <span>{status.sessions} sessions</span>
-                <span className="ov-subtitle-sep">/</span>
-                <span className="ov-ws">
-                  <span className={cn("ov-ws-dot", wsConnected ? "ov-ws-dot--on" : "ov-ws-dot--off")} />
-                  {wsConnected ? "live" : "polling"}
-                </span>
-              </>
-            ) : (
-              <span>Connecting...</span>
-            )}
-          </div>
-          <div className={`ov-hero-badge ov-hero-badge--${statusVariant}`}>
-            <span className={`ov-hero-dot ov-hero-dot--${statusVariant}`} />
-            {statusLabel}
-          </div>
+        <div className="ov-hero-stats">
+          <MetricTile
+            label="版本"
+            value={status ? formatVersionLabel(status.version) : "-"}
+            icon={<Shield size={16} />}
+          />
+          <MetricTile
+            label="会话"
+            value={status ? String(status.sessions) : "-"}
+            icon={<Users size={16} />}
+          />
+          <MetricTile
+            label="连接方式"
+            value={wsConnected ? "实时" : "轮询"}
+            icon={<Zap size={16} />}
+          />
         </div>
-      </div>
+      </section>
 
-      {/* Error */}
-      {error && <div className="ov-error" role="alert">{error}</div>}
+      {error && (
+        <div className="ov-error" role="alert">
+          {error}
+        </div>
+      )}
 
-      {/* Primary Stats — bento grid */}
-      <div className="ov-bento">
-        <div className="ov-card ov-card--status">
-          <div className="ov-card-label">
-            <Zap size={11} />
-            System Status
-          </div>
+      <section className="ov-grid ov-grid--primary" aria-label="关键状态">
+        <article className="ov-card ov-card--status">
+          <CardLabel icon={<Zap size={14} />} label="系统状态" />
           <div className="ov-status-row">
             <span className={`ov-status-dot ov-status-dot--${statusVariant}`} />
-            <span className="ov-card-value">
-              {status ? (statusVariant === "online" ? "Operational" : statusVariant === "partial" ? "Degraded" : "Down") : "\u2014"}
-            </span>
+            <span className="ov-card-value">{status ? statusText(statusVariant) : "-"}</span>
           </div>
-          {channelEntries.length > 0 && (
-            <div className="ov-card-meta">
-              {connectedCount}/{channelEntries.length} channels active
-            </div>
-          )}
-        </div>
+          <p className="ov-card-meta">
+            {processes && totalProcesses > 0
+              ? `${aliveProcesses}/${totalProcesses} 个进程健康`
+              : channelEntries.length > 0
+                ? `${connectedCount}/${channelEntries.length} 个渠道在线`
+                : "等待系统状态"}
+          </p>
+        </article>
 
-        <div className="ov-card ov-card--uptime">
-          <div className="ov-card-label">
-            <Clock size={11} />
-            Uptime
-          </div>
+        <article className="ov-card ov-card--uptime">
+          <CardLabel icon={<Clock size={14} />} label="运行时间" />
           <div className="ov-card-value ov-card-value--mono">
-            {status ? formatUptime(status.uptime) : "\u2014"}
+            {status ? formatUptime(status.uptime) : "-"}
           </div>
           {status && (
             <div
-              className="ov-uptime-bar-wrap"
+              className="ov-progress"
               role="progressbar"
+              aria-label="近 30 天运行时间"
               aria-valuenow={Math.round(uptimePercent(status.uptime))}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="Uptime over 30 days"
             >
-              <div
-                className="ov-uptime-bar"
-                style={{ width: `${uptimePercent(status.uptime)}%` }}
-              />
+              <span style={{ width: `${uptimePercent(status.uptime)}%` }} />
             </div>
           )}
-        </div>
+        </article>
 
-        <div className="ov-card ov-card--sessions">
-          <div className="ov-card-label">
-            <Users size={11} />
-            Sessions
+        <article className="ov-card ov-card--usage">
+          <CardLabel icon={<DollarSign size={14} />} label="模型用量" />
+          <div className="ov-card-value ov-card-value--mono">
+            {usage ? formatNumber(totalTokens ?? 0) : "-"}
           </div>
-          <div className="ov-card-value">
-            {status ? String(status.sessions) : "\u2014"}
-          </div>
-        </div>
+          <p className="ov-card-meta">
+            {usage
+              ? `${formatCost(usage.totalCostUsd)} / ${formatNumber(usage.totalRequests)} 次请求`
+              : "暂无用量数据"}
+          </p>
+        </article>
 
-        <div className="ov-card ov-card--version">
-          <div className="ov-card-label">
-            <Shield size={11} />
-            Version
-          </div>
-          <div className="ov-card-value ov-card-value--sm">
-            {status ? `v${status.version}` : "\u2014"}
-          </div>
-          {status?.authEnabled && (
-            <div className="ov-card-meta ov-card-meta--success">
-              Auth enabled
-            </div>
-          )}
-        </div>
-      </div>
+        <article className="ov-card ov-card--agents">
+          <CardLabel icon={<Bot size={14} />} label="智能体" />
+          <div className="ov-card-value">{agents ? String(agents.length) : "-"}</div>
+          <p className="ov-card-meta">已注册智能体</p>
+        </article>
+      </section>
 
-      {/* Operational Data — second bento row */}
-      <div className="ov-section">
+      <section className="ov-section" aria-label="运行概况">
         <div className="ov-section-head">
-          <span className="ov-section-title">Operations</span>
-          <span className="ov-section-line" />
+          <h3>运行概况</h3>
+          <span />
         </div>
-        <div className="ov-bento-ops">
-          {/* Token Usage */}
-          <div className="ov-card ov-card--usage">
-            <div className="ov-card-label">
-              <DollarSign size={11} />
-              Token Usage
-            </div>
-            {usage ? (
-              <>
-                <div className="ov-card-value ov-card-value--mono">
-                  {formatNumber(totalTokens ?? 0)}
-                </div>
-                <div className="ov-usage-breakdown">
-                  <span className="ov-usage-item">
-                    <span className="ov-usage-dot ov-usage-dot--input" />
-                    {formatNumber(usage.totalInputTokens)} in
-                  </span>
-                  <span className="ov-usage-item">
-                    <span className="ov-usage-dot ov-usage-dot--output" />
-                    {formatNumber(usage.totalOutputTokens)} out
-                  </span>
-                </div>
-                <div className="ov-card-meta">
-                  {formatCost(usage.totalCostUsd)} spent · {formatNumber(usage.totalRequests)} requests
-                </div>
-              </>
-            ) : (
-              <div className="ov-card-value">{"\u2014"}</div>
-            )}
-          </div>
-
-          {/* Agents */}
-          <div className="ov-card ov-card--agents">
-            <div className="ov-card-label">
-              <Bot size={11} />
-              Agents
-            </div>
-            <div className="ov-card-value">
-              {agents ? String(agents.length) : "\u2014"}
-            </div>
-            <div className="ov-card-meta">
-              registered
-            </div>
-          </div>
-
-          {/* Processes */}
-          <div className="ov-card ov-card--processes">
-            <div className="ov-card-label">
-              <Cpu size={11} />
-              Processes
-            </div>
+        <div className="ov-grid ov-grid--ops">
+          <article className="ov-card ov-card--processes">
+            <CardLabel icon={<Cpu size={14} />} label="进程健康" />
             {processes ? (
               <>
-                <div className="ov-process-grid">
-                  {processes.map((p) => (
-                    <div key={p.name} className="ov-process-row">
-                      <ProcessIcon status={p.status} />
-                      <span className="ov-process-name">{p.name}</span>
+                <div className="ov-process-list">
+                  {processes.map((process) => (
+                    <div key={process.name} className="ov-process-row">
+                      <ProcessIcon status={process.status} />
+                      <span className="ov-process-name">{processLabel(process.name)}</span>
+                      <span className={`ov-process-state ov-process-state--${process.status}`}>
+                        {processStatusLabel(process.status)}
+                      </span>
                       <span className="ov-process-uptime">
-                        {formatUptime(p.uptimeSeconds)}
+                        {formatUptime(process.uptimeSeconds)}
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="ov-card-meta">
-                  {aliveProcesses}/{totalProcesses} healthy
-                </div>
+                <p className="ov-card-meta">{aliveProcesses}/{totalProcesses} 个进程健康</p>
               </>
             ) : (
-              <div className="ov-card-value">{"\u2014"}</div>
+              <p className="ov-card-meta">正在读取进程状态</p>
             )}
-          </div>
+          </article>
 
-          {/* Cron */}
-          <div className="ov-card ov-card--cron">
-            <div className="ov-card-label">
-              <Timer size={11} />
-              Cron Jobs
-            </div>
+          <article className="ov-card ov-card--cron">
+            <CardLabel icon={<Timer size={14} />} label="定时任务" />
             {cron ? (
               <>
                 <div className="ov-status-row">
@@ -392,113 +386,90 @@ export default function Overview() {
                     "ov-status-dot",
                     cron.running ? "ov-status-dot--online" : "ov-status-dot--offline",
                   )} />
-                  <span className="ov-card-value">
-                    {cron.jobCount}
-                  </span>
+                  <span className="ov-card-value">{cron.jobCount}</span>
                 </div>
-                <div className="ov-card-meta">
-                  {cron.running ? "scheduler active" : "scheduler stopped"}
-                  {cron.nextDueAt ? ` · next in ${formatCountdown(cron.nextDueAt)}` : ""}
-                </div>
+                <p className="ov-card-meta">
+                  {cron.running ? "调度器运行中" : "调度器已停止"}
+                  {cron.nextDueAt ? ` / 下次执行 ${formatCountdown(cron.nextDueAt)}` : ""}
+                </p>
               </>
             ) : (
-              <div className="ov-card-value">{"\u2014"}</div>
+              <p className="ov-card-meta">正在读取定时任务</p>
             )}
-          </div>
+          </article>
 
-          {/* Memory */}
           {memory && (
-            <div className="ov-card ov-card--memory">
-              <div className="ov-card-label">
-                <Database size={11} />
-                Memory
-              </div>
+            <article className="ov-card ov-card--memory">
+              <CardLabel icon={<Database size={14} />} label="记忆索引" />
               <div className="ov-card-value ov-card-value--mono">
-                {formatNumber(memory.totalChunks)}
+                {formatNumber(memory.totalChunks ?? 0)}
               </div>
-              <div className="ov-usage-breakdown">
-                <span className="ov-usage-item">
-                  <span className="ov-usage-dot ov-usage-dot--input" />
-                  {memory.totalSources} sources
-                </span>
-                <span className="ov-usage-item">
-                  <span className="ov-usage-dot ov-usage-dot--output" />
-                  {memory.agentsWithMemory} agents
-                </span>
+              <div className="ov-inline-metrics">
+                <span>{formatNumber(memory.totalSources ?? 0)} 个来源</span>
+                <span>{formatNumber(memory.agentsWithMemory ?? 0)} 个智能体</span>
               </div>
-              <div className="ov-card-meta">
-                {formatNumber(memory.totalTokens)} tokens indexed
-              </div>
-            </div>
+              <p className="ov-card-meta">
+                已索引 {formatNumber(memory.totalTokens ?? 0)} tokens
+              </p>
+            </article>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* Channels */}
       {channelEntries.length > 0 && (
-        <div className="ov-section">
+        <section className="ov-section" aria-label="渠道状态">
           <div className="ov-section-head">
-            <span className="ov-section-title">Channels</span>
-            <span className="ov-section-count">
-              {connectedCount}/{channelEntries.length}
-            </span>
-            <span className="ov-section-line" />
+            <h3>渠道状态</h3>
+            <strong>{connectedCount}/{channelEntries.length}</strong>
+            <span />
           </div>
-          <div className="ov-channels">
-            {channelEntries.map(([name, info], i) => {
+          <div className="ov-channel-grid">
+            {channelEntries.map(([name, info]) => {
               const connected = info.status === "connected";
               return (
-                <div
+                <article
                   key={name}
                   className={cn(
                     "ov-channel",
                     connected ? "ov-channel--connected" : "ov-channel--offline",
                   )}
-                  style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <SignalBars />
+                  <SignalBars connected={connected} />
                   <div className="ov-channel-info">
-                    <div className="ov-channel-name">
-                      {name.replace("Agent:", "").replace("agent:", "")}
-                    </div>
-                    <div className="ov-channel-status">{info.status}</div>
+                    <h4>{formatChannelName(name)}</h4>
+                    <p>{connected ? "已连接" : info.status}</p>
                   </div>
                   <ChannelTypeBadges type={info.type} />
-                </div>
+                </article>
               );
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Token */}
       {status?.authEnabled && (
-        <div className="ov-section">
+        <section className="ov-section" aria-label="访问令牌">
           <div className="ov-section-head">
-            <span className="ov-section-title">Access Token</span>
-            <span className="ov-section-line" />
+            <h3>访问令牌</h3>
+            <span />
           </div>
           {getToken() ? (
             <div className="ov-token-card">
               <div className="ov-token-row">
-                <Key size={14} className="text-success shrink-0" />
-                <span className="ov-token-text">Token configured</span>
+                <Key size={16} className="ov-token-icon" />
+                <span>令牌已配置</span>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => {
                     clearToken();
-                    setTokenMsg("Token cleared. Refresh to re-enter.");
+                    setTokenMsg("令牌已清除，刷新后需要重新输入。");
                   }}
                 >
-                  Clear
+                  清除
                 </Button>
               </div>
-              {tokenMsg && (
-                <p className="ov-token-msg ov-token-msg--muted" aria-live="polite">
-                  {tokenMsg}
-                </p>
-              )}
+              {tokenMsg && <p className="ov-token-msg">{tokenMsg}</p>}
             </div>
           ) : (
             <div className="ov-token-card">
@@ -507,61 +478,93 @@ export default function Overview() {
                   id="overview-token"
                   type="password"
                   value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder="Enter access token..."
+                  onChange={(event) => setTokenInput(event.target.value)}
+                  placeholder="输入访问令牌"
                 />
-                <Button type="submit" variant="primary" className="shrink-0">
-                  Save
+                <Button type="submit" variant="primary">
+                  保存
                 </Button>
               </form>
-              {tokenMsg && (
-                <p className="ov-token-msg ov-token-msg--danger" aria-live="polite">
-                  {tokenMsg}
-                </p>
-              )}
+              {tokenMsg && <p className="ov-token-msg ov-token-msg--danger">{tokenMsg}</p>}
             </div>
           )}
-        </div>
+        </section>
       )}
     </div>
   );
 }
 
-/* ─── Sub-components ─── */
-
-function ProcessIcon({ status }: { readonly status: string }) {
-  if (status === "alive") return <CheckCircle size={12} className="ov-process-icon--alive" />;
-  if (status === "stale") return <AlertTriangle size={12} className="ov-process-icon--stale" />;
-  return <XCircle size={12} className="ov-process-icon--dead" />;
+function CardLabel({
+  icon,
+  label,
+}: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+}) {
+  return (
+    <div className="ov-card-label">
+      {icon}
+      {label}
+    </div>
+  );
 }
 
-function SignalBars() {
+function MetricTile({
+  icon,
+  label,
+  value,
+}: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly value: string;
+}) {
   return (
-    <div className="ov-channel-signal">
-      <span className="ov-signal-bar" />
-      <span className="ov-signal-bar" />
-      <span className="ov-signal-bar" />
-      <span className="ov-signal-bar" />
+    <div className="ov-metric-tile">
+      <span className="ov-metric-icon">{icon}</span>
+      <span className="ov-metric-label">{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function ProcessIcon({ status }: { readonly status: ProcessHealth["status"] }) {
+  if (status === "alive") {
+    return <CheckCircle size={14} className="ov-process-icon--alive" />;
+  }
+  if (status === "stale") {
+    return <AlertTriangle size={14} className="ov-process-icon--stale" />;
+  }
+  return <XCircle size={14} className="ov-process-icon--dead" />;
+}
+
+function SignalBars({ connected }: { readonly connected: boolean }) {
+  return (
+    <div className={cn("ov-channel-signal", connected && "ov-channel-signal--on")}>
+      <span />
+      <span />
+      <span />
+      <span />
     </div>
   );
 }
 
 const CHANNEL_TYPE_META: Record<string, { icon: React.ReactNode; label: string }> = {
-  telegram: { icon: <Send size={9} />, label: "TG" },
-  whatsapp: { icon: <MessageCircle size={9} />, label: "WA" },
+  telegram: { icon: <Send size={11} />, label: "Telegram" },
+  whatsapp: { icon: <MessageCircle size={11} />, label: "WhatsApp" },
+  preview: { icon: <MessageCircle size={11} />, label: "预览" },
 };
 
 function ChannelTypeBadges({ type }: { readonly type: string }) {
-  const types = type.split("+");
+  const types = type.split("+").filter(Boolean);
   return (
     <div className="ov-channel-badges">
-      {types.map((t) => {
-        const meta = CHANNEL_TYPE_META[t] ?? {
-          icon: <MessageCircle size={9} />,
-          label: t.toUpperCase().slice(0, 3),
+      {types.map((item) => {
+        const meta = CHANNEL_TYPE_META[item] ?? {
+          icon: <MessageCircle size={11} />,
+          label: item,
         };
         return (
-          <span key={t} className="ov-channel-badge" title={t}>
+          <span key={item} className="ov-channel-badge" title={item}>
             {meta.icon}
             {meta.label}
           </span>

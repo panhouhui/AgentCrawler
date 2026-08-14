@@ -16,7 +16,7 @@ export function BasicTab({ form }: { form: UseAgentFormReturn }) {
       {mode === "create" && templates.length > 0 && (
         <fieldset className="border-none p-0 m-0">
           <legend className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border w-full">
-            Start from Template
+            从模板开始
           </legend>
           <div className="flex gap-2.5 overflow-x-auto pb-1">
             {templates.map((tpl) => (
@@ -53,15 +53,15 @@ export function BasicTab({ form }: { form: UseAgentFormReturn }) {
       {/* Section: Identity */}
       <fieldset className="border-none p-0 m-0">
         <legend className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border w-full flex items-center justify-between">
-          Identity
+          身份
         </legend>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           {mode === "create" && (
             <FormField error={errors.id} className="mb-5">
               <Input
-                label="ID (kebab-case)"
+                label="ID（短横线格式）"
                 type="text"
-                placeholder="my-agent"
+                placeholder="例如：social-agent"
                 pattern="^[a-z0-9][a-z0-9-]*$"
                 required
                 {...register("id", {
@@ -74,18 +74,18 @@ export function BasicTab({ form }: { form: UseAgentFormReturn }) {
           )}
           <FormField error={errors.name} className="mb-5">
             <Input
-              label="Name"
+              label="名称"
               type="text"
-              placeholder="My Agent"
+              placeholder="我的智能体"
               required
               {...register("name")}
             />
           </FormField>
           <div className="mb-5 col-span-full">
             <Input
-              label="Description"
+              label="描述"
               type="text"
-              placeholder="Short description of this agent's role"
+              placeholder="简要描述这个智能体的职责"
               {...register("description")}
             />
           </div>

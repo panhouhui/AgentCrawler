@@ -12,6 +12,9 @@ export const MODEL_ROUTING_KEYS = [
   "sige.judge.2",
   "pipeline.generator",
   "agent-templates",
+  "social.gate",
+  "social.platform",
+  "social.fusion",
 ] as const;
 
 export type ModelRoutingKey = (typeof MODEL_ROUTING_KEYS)[number];
@@ -21,6 +24,7 @@ export const MODEL_PROVIDERS = [
   "alibaba",
   "openrouter",
   "agent-sdk",
+  "minimax",
   "opencode",
 ] as const;
 
@@ -45,6 +49,9 @@ export const MODEL_ROUTING_DEFAULTS: Readonly<Record<ModelRoutingKey, ModelRoute
   // Matches the live `pipeline.generator` route (alibaba / deepseek-v4-pro).
   "pipeline.generator": { provider: "alibaba", model: "deepseek-v4-pro" },
   "agent-templates": { provider: "agent-sdk", model: "claude-haiku-4-5" },
+  "social.gate": { provider: "minimax", model: "MiniMax-M2.7" },
+  "social.platform": { provider: "minimax", model: "MiniMax-M2.7" },
+  "social.fusion": { provider: "minimax", model: "MiniMax-M2.7" },
 };
 
 function isKey(key: string): key is ModelRoutingKey {

@@ -240,7 +240,7 @@ export default function SigeIdeas({ navigateTo }: SigeIdeasProps) {
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="Search ideas by title or description..."
+            placeholder="按标题或描述搜索创意..."
           />
         </div>
 

@@ -3,39 +3,40 @@ import { z } from "zod";
 import {
   buildToolCatalog,
   CATEGORY_LABELS,
-  applyFeatureFilter,
-  type EnabledFeatures,
 } from "../../tools/catalog";
 import { getOverride, setOverride } from "../../store/config-overrides";
-import { loadConfigWithOverrides } from "../../config/loader";
 
 const NAMESPACE = "tools";
+const HIDDEN_LEGACY_SOURCE_CATEGORIES = new Set([
+  "product_hunt",
+  "hacker_news",
+  "reddit",
+  "appstore",
+  "playstore",
+  "x_timeline",
+  "github",
+]);
 
-async function getEnabledFeatures(): Promise<EnabledFeatures> {
-  const [config, enabledScrapersOverride, qdrantOverride, disabledToolsOverride] =
-    await Promise.all([
-      loadConfigWithOverrides(),
-      getOverride("features", "enabledScrapers"),
-      getOverride("features", "qdrantEnabled"),
-      getOverride(NAMESPACE, "disabledTools"),
-    ]);
+function visibleCatalog() {
+  return buildToolCatalog().filter(
+    (entry) => !HIDDEN_LEGACY_SOURCE_CATEGORIES.has(entry.category),
+  );
+}
 
-  const enabledScrapers: readonly string[] =
-    enabledScrapersOverride !== null
-      ? (enabledScrapersOverride as string[])
-      : (config.processes.scraperProcesses.scraperIds ?? []);
+function visibleCategoryLabels(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(CATEGORY_LABELS).filter(
+      ([category]) => !HIDDEN_LEGACY_SOURCE_CATEGORIES.has(category),
+    ),
+  );
+}
 
-  const qdrantEnabled: boolean =
-    qdrantOverride !== null
-      ? Boolean(qdrantOverride)
-      : config.memorySearch !== undefined;
-
-  const disabledTools: readonly string[] =
-    disabledToolsOverride !== null
-      ? (disabledToolsOverride as string[])
-      : [];
-
-  return { enabledScrapers, qdrantEnabled, disabledTools };
+async function getDisabledTools(): Promise<readonly string[]> {
+  const disabled = await Promise.race([
+    getOverride(NAMESPACE, "disabledTools"),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+  ]).catch(() => null);
+  return Array.isArray(disabled) ? disabled.filter((name) => typeof name === "string") : [];
 }
 
 const updateDisabledSchema = z.object({
@@ -46,14 +47,17 @@ export function createToolsRoutes(): Hono {
   const app = new Hono();
 
   app.get("/tools", async (c) => {
-    const catalog = buildToolCatalog();
-    const features = await getEnabledFeatures();
-    const filtered = applyFeatureFilter(catalog, features);
+    const catalog = visibleCatalog();
+    const disabledTools = await getDisabledTools();
+    const filtered = catalog.map((entry) => ({
+      ...entry,
+      enabled: !disabledTools.includes(entry.name),
+    }));
     return c.json({
       success: true,
       data: filtered,
-      categories: CATEGORY_LABELS,
-      disabledTools: features.disabledTools,
+      categories: visibleCategoryLabels(),
+      disabledTools,
     });
   });
 
@@ -62,13 +66,13 @@ export function createToolsRoutes(): Hono {
     try {
       body = await c.req.json();
     } catch {
-      return c.json({ success: false, error: "Invalid JSON body" }, 400);
+      return c.json({ success: false, error: "请求体不是有效 JSON" }, 400);
     }
 
     const parsed = updateDisabledSchema.safeParse(body);
     if (!parsed.success) {
       return c.json(
-        { success: false, error: parsed.error.issues[0]?.message ?? "Invalid body" },
+        { success: false, error: parsed.error.issues[0]?.message ?? "请求内容无效" },
         400,
       );
     }

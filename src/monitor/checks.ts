@@ -19,7 +19,11 @@ function warnUnsupportedOnce(probe: string): void {
 
 async function spawnText(cmd: readonly string[]): Promise<string | null> {
   try {
-    const proc = Bun.spawn(cmd as string[], { stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn(cmd as string[], {
+      stdout: "pipe",
+      stderr: "pipe",
+      windowsHide: true,
+    });
     const output = await new Response(proc.stdout).text();
     const exitCode = await proc.exited;
     if (exitCode !== 0) return null;

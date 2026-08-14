@@ -16,6 +16,16 @@ interface SessionsResponse {
   readonly data: Session[];
 }
 
+const CHANNEL_LABELS: Record<string, string> = {
+  telegram: "Telegram 渠道",
+  whatsapp: "WhatsApp 渠道",
+  "social-fusion": "社交融合",
+};
+
+function channelLabel(channel: string): string {
+  return CHANNEL_LABELS[channel] ?? channel;
+}
+
 export default function Sessions() {
   const { data, loading, error } = usePolledFetch<SessionsResponse>(
     "/api/sessions",
@@ -29,31 +39,31 @@ export default function Sessions() {
   }
 
   if (error) {
-    return <EmptyState title="Failed to load sessions" />;
+    return <EmptyState title="会话加载失败" />;
   }
 
   if (sessions.length === 0) {
-    return <EmptyState description="No active sessions" />;
+    return <EmptyState description="暂无活跃会话" />;
   }
 
   return (
     <div>
-      <PageHeader title="Active Sessions" count={sessions.length} />
+      <PageHeader title="活跃会话" count={sessions.length} />
       <div className="bg-bg-1 border border-border rounded-lg overflow-hidden">
         <table className="w-full border-collapse">
           <thead>
             <tr>
               <th className="text-left px-4 py-3 bg-bg-2 text-faint text-xs font-semibold uppercase tracking-[0.1em] border-b border-border">
-                Channel
+                渠道
               </th>
               <th className="text-left px-4 py-3 bg-bg-2 text-faint text-xs font-semibold uppercase tracking-[0.1em] border-b border-border">
-                Chat ID
+                聊天 ID
               </th>
               <th className="text-left px-4 py-3 bg-bg-2 text-faint text-xs font-semibold uppercase tracking-[0.1em] border-b border-border">
-                Last Active
+                最近活跃
               </th>
               <th className="text-left px-4 py-3 bg-bg-2 text-faint text-xs font-semibold uppercase tracking-[0.1em] border-b border-border">
-                Created
+                创建时间
               </th>
               <th className="text-left px-4 py-3 bg-bg-2 text-faint text-xs font-semibold uppercase tracking-[0.1em] border-b border-border" />
             </tr>
@@ -70,7 +80,7 @@ export default function Sessions() {
                         : "bg-bg-3 text-muted",
                     )}
                   >
-                    {s.channel}
+                    {channelLabel(s.channel)}
                   </span>
                 </td>
                 <td className="px-4 py-3 border-t border-border text-sm text-foreground font-mono group-hover:bg-bg-2">
@@ -89,7 +99,7 @@ export default function Sessions() {
                     className="bg-transparent border-none text-accent cursor-pointer text-sm p-0 hover:text-accent-hover"
                     href={`/chat/${encodeURIComponent(s.channel)}/${encodeURIComponent(s.chatId)}`}
                   >
-                    Open
+                    打开
                   </a>
                 </td>
               </tr>

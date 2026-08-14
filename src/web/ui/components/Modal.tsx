@@ -88,7 +88,7 @@ export function Modal({ open, onClose, title, children, width }: ModalProps) {
             <button
               className="w-8 h-8 rounded-md bg-transparent border-none text-muted cursor-pointer flex items-center justify-center hover:bg-bg-3 hover:text-foreground transition-colors"
               onClick={onClose}
-              aria-label="Close"
+              aria-label="关闭"
             >
               <X size={18} />
             </button>

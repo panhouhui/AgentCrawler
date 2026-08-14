@@ -42,7 +42,7 @@ export function IntervalConfigPanel({ scraperId, fields }: IntervalConfigPanelPr
       } catch {
         if (!cancelled) {
           setLoaded(true);
-          toastError("Failed to load config.");
+          toastError("配置加载失败。");
         }
       }
     })();
@@ -58,9 +58,9 @@ export function IntervalConfigPanel({ scraperId, fields }: IntervalConfigPanelPr
         method: "PUT",
         body: JSON.stringify(config),
       });
-      success("Config saved.");
+      success("配置已保存。");
     } catch {
-      toastError("Failed to save config.");
+      toastError("配置保存失败。");
     } finally {
       setSaving(false);
     }
@@ -75,7 +75,7 @@ export function IntervalConfigPanel({ scraperId, fields }: IntervalConfigPanelPr
       >
         <div className="flex items-center gap-2 text-xs text-muted">
           <Settings2 className="w-3.5 h-3.5" />
-          <span className="font-medium">Scraper Config</span>
+          <span className="font-medium">爬虫配置</span>
         </div>
         <ChevronDown
           className={`w-3.5 h-3.5 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`}
@@ -84,7 +84,7 @@ export function IntervalConfigPanel({ scraperId, fields }: IntervalConfigPanelPr
       {open && (
         <div className="border-t border-border px-4 py-3 flex flex-col gap-3">
           {!loaded ? (
-            <p className="text-xs text-muted">Loading...</p>
+            <p className="text-xs text-muted">加载中...</p>
           ) : (
             <>
               {fields.map((f) => (
@@ -114,7 +114,7 @@ export function IntervalConfigPanel({ scraperId, fields }: IntervalConfigPanelPr
                   disabled={saving}
                   loading={saving}
                 >
-                  Save
+                  保存
                 </Button>
               </div>
             </>

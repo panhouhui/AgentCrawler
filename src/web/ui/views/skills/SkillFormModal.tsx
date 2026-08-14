@@ -53,8 +53,8 @@ export function SkillFormModal({
 
   function validate(): boolean {
     const next: Record<string, string> = {};
-    if (!name.trim()) next.name = "Name is required";
-    if (!description.trim()) next.description = "Description is required";
+    if (!name.trim()) next.name = "名称不能为空";
+    if (!description.trim()) next.description = "描述不能为空";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -90,18 +90,18 @@ export function SkillFormModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={mode === "create" ? "Create Skill" : "Edit Skill"}
+      title={mode === "create" ? "创建技能" : "编辑技能"}
       width="680px"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <FormField
-          label="Name"
+          label="名称"
           id="skill-name"
           error={errors.name ? { message: errors.name, type: "manual" } : undefined}
         >
           <Input
             id="skill-name"
-            placeholder="e.g. Code Review, Data Analysis"
+            placeholder="例如：代码审查、数据分析"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
@@ -109,7 +109,7 @@ export function SkillFormModal({
         </FormField>
 
         <FormField
-          label="Description"
+          label="描述"
           id="skill-desc"
           error={
             errors.description
@@ -119,7 +119,7 @@ export function SkillFormModal({
         >
           <Input
             id="skill-desc"
-            placeholder="Brief description of what this skill does"
+            placeholder="简要描述这个技能的作用"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -131,7 +131,7 @@ export function SkillFormModal({
               className="block text-sm font-semibold text-muted uppercase tracking-wide"
               htmlFor="skill-content"
             >
-              Content
+              内容
             </label>
             <div className="relative" ref={templateRef}>
               <button
@@ -140,7 +140,7 @@ export function SkillFormModal({
                 onClick={() => setShowTemplates((v) => !v)}
               >
                 <Sparkles size={12} />
-                Templates
+                模板
                 <ChevronDown size={12} />
               </button>
               {showTemplates && (
@@ -167,23 +167,22 @@ export function SkillFormModal({
           <textarea
             id="skill-content"
             className="w-full px-4 py-3 bg-bg border border-border-2 rounded-lg text-foreground text-sm font-mono outline-none transition-colors duration-150 focus:border-accent placeholder:text-faint resize-y leading-relaxed min-h-[240px]"
-            placeholder="Write your skill content in markdown..."
+            placeholder="用 Markdown 编写技能内容..."
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
           <p className="text-faint text-xs mt-1.5">
-            Supports markdown. Define instructions, steps, examples, and
-            guidelines for this skill.
+            支持 Markdown。请定义该技能的指令、步骤、示例和规范。
           </p>
         </div>
 
         <div className="flex justify-end gap-3 pt-2 border-t border-border">
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            取消
           </Button>
           <Button type="submit" loading={saving}>
             <FileText size={16} />
-            {mode === "create" ? "Create Skill" : "Save Changes"}
+            {mode === "create" ? "创建技能" : "保存修改"}
           </Button>
         </div>
       </form>

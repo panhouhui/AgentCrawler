@@ -1,11 +1,16 @@
-import { resolve, dirname } from 'path'
+import { resolve, dirname, isAbsolute, relative } from 'path'
 import { realpath } from 'node:fs/promises'
 import { realpathSync } from 'node:fs'
 
 export function getHome(): string {
-  const home = process.env.HOME
+  const home =
+    process.env.HOME ||
+    process.env.USERPROFILE ||
+    (process.env.HOMEDRIVE && process.env.HOMEPATH
+      ? `${process.env.HOMEDRIVE}${process.env.HOMEPATH}`
+      : "")
   if (!home) {
-    throw new Error('HOME environment variable is not set')
+    throw new Error('HOME or USERPROFILE environment variable is not set')
   }
   return home
 }
@@ -34,9 +39,10 @@ function checkPrefix(
   resolved: string,
   allowedDirs: readonly string[]
 ): boolean {
-  return allowedDirs.some(
-    (dir) => resolved === dir || resolved.startsWith(dir + '/')
-  )
+  return allowedDirs.some((dir) => {
+    const rel = relative(dir, resolved)
+    return rel === '' || (!!rel && !rel.startsWith('..') && !isAbsolute(rel))
+  })
 }
 
 export async function isPathAllowed(

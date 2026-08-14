@@ -44,7 +44,7 @@ export default function Skills() {
       setSkills(res.data);
       setError("");
     } catch {
-      setError("Failed to load skills");
+      setError("技能加载失败");
     } finally {
       setLoading(false);
     }
@@ -85,17 +85,17 @@ export default function Skills() {
       if (formMode === "create") {
         const res = await createSkillApi(data);
         if (!res.success) {
-          toast.error(res.error ?? "Failed to create skill");
+          toast.error(res.error ?? "创建技能失败");
           return;
         }
-        toast.success(`Skill "${data.name}" created`);
+        toast.success(`技能「${data.name}」已创建`);
       } else if (editId) {
         const res = await updateSkillApi(editId, data);
         if (!res.success) {
-          toast.error(res.error ?? "Failed to update skill");
+          toast.error(res.error ?? "更新技能失败");
           return;
         }
-        toast.success(`Skill "${data.name}" updated`);
+        toast.success(`技能「${data.name}」已更新`);
       }
       setFormOpen(false);
       await loadSkills();
@@ -103,7 +103,7 @@ export default function Skills() {
       const msg =
         err && typeof err === "object" && "message" in err
           ? (err as { message: string }).message
-          : "Operation failed";
+          : "操作失败";
       toast.error(msg);
     }
   }
@@ -112,14 +112,14 @@ export default function Skills() {
     try {
       const res = await deleteSkillApi(id);
       if (!res.success) {
-        toast.error(res.error ?? "Failed to delete skill");
+        toast.error(res.error ?? "删除技能失败");
         return;
       }
-      toast.success("Skill deleted");
+      toast.success("技能已删除");
       setSelectedSkill(null);
       await loadSkills();
     } catch {
-      toast.error("Failed to delete skill");
+      toast.error("删除技能失败");
     }
   }
 
@@ -162,8 +162,8 @@ export default function Skills() {
 
       <div className="flex items-start justify-between gap-4 mb-1">
         <PageHeader
-          title="Skills"
-          subtitle="Create and manage skill definitions for your agents"
+          title="技能"
+          subtitle="创建和管理智能体技能定义"
           count={skills.length}
         />
         <div className="flex gap-2 shrink-0 pt-1">
@@ -173,7 +173,7 @@ export default function Skills() {
             onClick={() => fileInputRef.current?.click()}
           >
             <Upload size={14} />
-            Load File
+            加载文件
           </Button>
           <Button
             variant="secondary"
@@ -181,11 +181,11 @@ export default function Skills() {
             onClick={() => setAiGeneratorOpen(true)}
           >
             <Sparkles size={14} />
-            AI Generate
+            AI 生成
           </Button>
           <Button size="sm" onClick={openCreate}>
             <Plus size={14} />
-            Create Skill
+            创建技能
           </Button>
         </div>
       </div>
@@ -200,7 +200,7 @@ export default function Skills() {
         <SearchBar
           value={search}
           onChange={setSearch}
-          placeholder="Search skills..."
+          placeholder="搜索技能..."
         />
       </div>
 
@@ -208,8 +208,8 @@ export default function Skills() {
         <EmptyState
           description={
             skills.length === 0
-              ? "No skills yet. Create your first skill to get started."
-              : "No skills match your search."
+              ? "暂无技能。创建第一个技能后开始使用。"
+              : "没有匹配的技能。"
           }
         />
       ) : (

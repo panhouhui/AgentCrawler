@@ -83,6 +83,28 @@ const KIND_COLORS: Record<string, string> = {
   playstore_ranking: "bg-[#34a853]/10 text-[#34a853]",
 };
 
+const KIND_LABELS: Record<string, string> = {
+  conversation: "会话",
+  observation: "观察",
+  note: "笔记",
+  idea: "创意",
+  hackernews_story: "Hacker News 文章",
+  reuters_news: "Reuters 新闻",
+  cointelegraph_news: "Cointelegraph 新闻",
+  cryptopanic_news: "CryptoPanic 新闻",
+  investingnews_news: "Investing 新闻",
+  x_post: "X 推文",
+  reddit_post: "Reddit 帖子",
+  github_repo: "GitHub 仓库",
+  producthunt_product: "Product Hunt 产品",
+  appstore_review: "App Store 评论",
+  appstore_ranking: "App Store 榜单",
+  playstore_review: "Play Store 评论",
+  playstore_ranking: "Play Store 榜单",
+  social_event: "社交事件",
+  kan_route: "Kan 路由",
+};
+
 function KindBadge({ kind }: { readonly kind: string }) {
   return (
     <span
@@ -91,7 +113,7 @@ function KindBadge({ kind }: { readonly kind: string }) {
         KIND_COLORS[kind] ?? "bg-bg-3 text-muted",
       )}
     >
-      {kind}
+      {KIND_LABELS[kind] ?? kind}
     </span>
   );
 }
@@ -150,7 +172,7 @@ function ExpandableContent({
           className="text-xs text-accent mt-1 bg-transparent border-none cursor-pointer p-0 font-sans hover:underline"
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? "Show less" : "Show more"}
+          {expanded ? "收起" : "展开更多"}
         </button>
       )}
     </div>
@@ -306,27 +328,27 @@ export default function Memory() {
 
   const agentIds = stats?.byAgent.map((a) => a.agentId) ?? [];
 
-  if (loading) return <LoadingState message="Loading memory debug..." />;
+  if (loading) return <LoadingState message="正在加载记忆调试数据..." />;
 
   return (
     <div className="max-w-[1200px]">
       <PageHeader
-        title="Memory"
-        subtitle="Debug RAG system — chunks, search, and agent key-value memory"
+        title="记忆"
+        subtitle="调试 RAG 系统的切片、搜索和智能体键值记忆"
       />
 
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-4 gap-3 mb-6 max-md:grid-cols-2 max-sm:grid-cols-2">
-          <StatCard label="Total Chunks" value={stats.totalChunks} />
-          <StatCard label="Total Sources" value={stats.totalSources} />
+          <StatCard label="切片总数" value={stats.totalChunks} />
+          <StatCard label="来源总数" value={stats.totalSources} />
           <StatCard
-            label="Total Tokens"
+            label="Token 总数"
             value={stats.totalTokens}
-            sub={`~${formatNumber(Math.round(stats.totalTokens / 250))} pages`}
+            sub={`约 ${formatNumber(Math.round(stats.totalTokens / 250))} 页`}
           />
           <StatCard
-            label="Agents w/ KV Memory"
+            label="有键值记忆的智能体"
             value={stats.agentsWithMemory}
           />
         </div>
@@ -352,19 +374,19 @@ export default function Memory() {
       {/* Model Configuration */}
       <div className="bg-bg-1 border border-border rounded-xl p-5 mb-6 transition-all duration-200 hover:border-border-hover">
         <div className="text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border">
-          Model Configuration
+          模型配置
         </div>
-        <ModelRoutePicker processKey="signal.facets" label="Signal Facets" />
-        <ModelRoutePicker processKey="signal.observations" label="Observation Extraction" />
+        <ModelRoutePicker processKey="signal.facets" label="信号切面" />
+        <ModelRoutePicker processKey="signal.observations" label="观察提取" />
       </div>
 
       {/* Tab Bar */}
       <div className="flex gap-1 mb-5 p-1 bg-bg-1 border border-border rounded-lg w-fit">
         {(
           [
-            { id: "search" as const, label: "Search Test" },
-            { id: "chunks" as const, label: "Recent Chunks" },
-            { id: "kv" as const, label: "Agent Memory" },
+            { id: "search" as const, label: "搜索测试" },
+            { id: "chunks" as const, label: "最近切片" },
+            { id: "kv" as const, label: "智能体记忆" },
           ] as const
         ).map((t) => (
           <button
@@ -391,7 +413,7 @@ export default function Memory() {
               <input
                 type="text"
                 className="w-full py-2.5 px-4 rounded-lg border border-border-2 bg-bg text-foreground text-base outline-none transition-colors focus:border-accent placeholder:text-faint"
-                placeholder="Enter a search query to test memory retrieval..."
+                placeholder="输入查询内容，测试记忆检索..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
@@ -402,7 +424,7 @@ export default function Memory() {
               value={searchAgent}
               onChange={(e) => setSearchAgent(e.target.value)}
             >
-              <option value="">All agents</option>
+              <option value="">全部智能体</option>
               {agentIds.map((id) => (
                 <option key={id} value={id}>
                   {id}
@@ -420,7 +442,7 @@ export default function Memory() {
               disabled={searching || !searchQuery.trim()}
               onClick={handleSearch}
             >
-              {searching ? "Searching..." : "Search"}
+              {searching ? "搜索中..." : "搜索"}
             </button>
           </div>
 
@@ -447,20 +469,20 @@ export default function Memory() {
                   <ExpandableContent content={r.content} maxLen={200} />
                   <div className="flex items-center gap-3 mt-2 text-xs text-faint">
                     <span>{r.tokenCount} tokens</span>
-                    {r.source.channel && <span>via {r.source.channel}</span>}
+                    {r.source.channel && <span>来自 {r.source.channel}</span>}
                   </div>
                 </div>
               ))}
             </div>
           ) : searchQuery && !searching ? (
             <EmptyState
-              title="No results"
-              description="No memory chunks matched your query. Try different terms or a different agent."
+              title="没有结果"
+              description="没有记忆切片匹配当前查询，可以换一个关键词或智能体。"
             />
           ) : (
             <EmptyState
-              title="Test Memory Search"
-              description="Enter a query above to search the RAG system and see what results the agents would get."
+              title="测试记忆搜索"
+              description="在上方输入查询内容，查看智能体会从 RAG 系统获得哪些结果。"
             />
           )}
         </div>
@@ -475,7 +497,7 @@ export default function Memory() {
               value={chunkAgent}
               onChange={(e) => setChunkAgent(e.target.value)}
             >
-              <option value="">All agents</option>
+              <option value="">全部智能体</option>
               {agentIds.map((id) => (
                 <option key={id} value={id}>
                   {id}
@@ -486,8 +508,8 @@ export default function Memory() {
 
           {chunks.length === 0 ? (
             <EmptyState
-              title="No chunks"
-              description="No memory chunks found."
+              title="暂无切片"
+              description="当前没有找到记忆切片。"
             />
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
@@ -496,19 +518,19 @@ export default function Memory() {
                   <thead>
                     <tr className="border-b border-border bg-bg-1">
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Agent
+                        智能体
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Kind
+                        类型
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint min-w-[300px]">
-                        Content
+                        内容
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
                         Tokens
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Time
+                        时间
                       </th>
                       <th className="py-2.5 px-3 w-[50px]" />
                     </tr>
@@ -548,7 +570,7 @@ export default function Memory() {
                             )}
                             disabled={deletingChunks.has(chunk.id)}
                             onClick={() => handleDeleteChunk(chunk.id, chunk.sourceId)}
-                            title="Delete this memory chunk"
+                            title="删除这个记忆切片"
                           >
                             {deletingChunks.has(chunk.id) ? "..." : "\u2715"}
                           </button>
@@ -572,7 +594,7 @@ export default function Memory() {
               value={kvAgent}
               onChange={(e) => setKvAgent(e.target.value)}
             >
-              <option value="">All agents</option>
+              <option value="">全部智能体</option>
               {agentIds.map((id) => (
                 <option key={id} value={id}>
                   {id}
@@ -583,8 +605,8 @@ export default function Memory() {
 
           {agentMemory.length === 0 ? (
             <EmptyState
-              title="No agent memory"
-              description="No key-value memory entries found."
+              title="暂无智能体记忆"
+              description="当前没有找到键值记忆条目。"
             />
           ) : (
             <div className="border border-border rounded-lg overflow-hidden">
@@ -593,16 +615,16 @@ export default function Memory() {
                   <thead>
                     <tr className="border-b border-border bg-bg-1">
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Agent
+                        智能体
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Key
+                        键
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint min-w-[300px]">
-                        Value
+                        值
                       </th>
                       <th className="text-left py-2.5 px-3 text-xs font-semibold uppercase tracking-wide text-faint">
-                        Updated
+                        更新时间
                       </th>
                     </tr>
                   </thead>

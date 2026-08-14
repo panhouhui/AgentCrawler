@@ -4,6 +4,7 @@ import { NAV_SECTIONS, type Tab } from "../navigation";
 import type { Theme } from "../app";
 import SidebarSection from "./SidebarSection";
 import { cn } from "../lib/cn";
+import { AppLogo } from "./AppLogo";
 
 interface SidebarProps {
   readonly activeTab: Tab;
@@ -67,22 +68,16 @@ export default function Sidebar({
         )}
       >
         {/* Header */}
-        <div className="flex items-center gap-2.5 px-3.5 h-[56px] border-b border-border shrink-0 max-lg:justify-center max-md:justify-start max-md:px-4">
-          <img
-            src="/logo.png"
-            alt="OpenCrow"
-            className="w-[38px] h-[38px] shrink-0 drop-shadow-[0_0_10px_rgba(167,139,250,0.35)]"
-          />
-          <span
-            className="text-[15px] font-bold text-strong tracking-tight max-lg:hidden max-md:block"
-            style={{ fontFamily: "'Outfit', system-ui, sans-serif" }}
-          >
-            Open<span className="text-accent">Crow</span>
+        <div className="agenthub-sidebar-brand flex items-center gap-2.5 px-3.5 h-[64px] border-b border-border shrink-0 max-lg:justify-center max-md:justify-start max-md:px-4">
+          <AppLogo size="md" />
+          <span data-no-localize="true" className="agenthub-sidebar-title max-lg:hidden max-md:flex">
+            <strong>AgentHub</strong>
+            <span>社交情报中枢</span>
           </span>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-2.5 px-2.5 overflow-y-auto" aria-label="Main navigation">
+        <nav className="flex-1 py-2.5 px-2.5 overflow-y-auto" aria-label="主导航">
           {NAV_SECTIONS.map((section) => {
             const filtered = hiddenTabs?.size
               ? { ...section, items: section.items.filter((item) => !hiddenTabs.has(item.id)) }
@@ -104,8 +99,8 @@ export default function Sidebar({
           <button
             className="flex items-center gap-2.5 w-full px-3 py-2.5 border-none rounded-md bg-transparent text-muted font-sans text-sm cursor-pointer text-left transition-colors duration-150 hover:text-foreground hover:bg-bg-2 max-lg:justify-center max-lg:p-2 max-lg:gap-0 max-md:justify-start max-md:px-3 max-md:py-2.5 max-md:gap-2.5"
             onClick={onThemeToggle}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            title={isDark ? "切换到浅色模式" : "切换到深色模式"}
+            aria-label={isDark ? "切换到浅色模式" : "切换到深色模式"}
           >
             {isDark ? (
               <Sun size={16} className="shrink-0" />
@@ -113,7 +108,7 @@ export default function Sidebar({
               <Moon size={16} className="shrink-0" />
             )}
             <span className="whitespace-nowrap overflow-hidden text-ellipsis max-lg:hidden max-md:block">
-              {isDark ? "Light mode" : "Dark mode"}
+              {isDark ? "浅色模式" : "深色模式"}
             </span>
           </button>
 
@@ -121,12 +116,12 @@ export default function Sidebar({
             <button
               className="flex items-center gap-2.5 w-full px-3 py-2.5 border-none rounded-md bg-transparent text-muted font-sans text-sm cursor-pointer text-left transition-colors duration-150 hover:text-danger hover:bg-danger-subtle max-lg:justify-center max-lg:p-2 max-lg:gap-0 max-md:justify-start max-md:px-3 max-md:py-2.5 max-md:gap-2.5"
               onClick={onSignOut}
-              title="Sign out"
-              aria-label="Sign out"
+              title="退出登录"
+              aria-label="退出登录"
             >
               <LogOut size={16} className="shrink-0" />
               <span className="whitespace-nowrap overflow-hidden text-ellipsis max-lg:hidden max-md:block">
-                Sign out
+              退出登录
               </span>
             </button>
           )}

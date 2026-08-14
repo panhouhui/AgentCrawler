@@ -12,6 +12,8 @@ import {
   TOOLTIP_STYLE,
   AXIS_LABEL,
   SPLIT_LINE,
+  agentDisplayName,
+  modelDisplayName,
 } from "./types";
 
 // ============================================================================
@@ -48,9 +50,9 @@ export function CostTimelineChart({
           const point = data[p.dataIndex];
           if (!point) return "";
           return `<div style="font-weight:600;margin-bottom:6px">${p.name}</div>
-            <span style="color:#f59e0b">●</span> Cost: <b>${formatCost(point.costUsd)}</b><br/>
-            <span style="color:#a78bfa">●</span> Requests: <b>${point.requestCount}</b><br/>
-            <span style="color:#707078">●</span> Tokens: <b>${formatNumber(point.inputTokens + point.outputTokens)}</b>`;
+            <span style="color:#f59e0b">●</span> 成本：<b>${formatCost(point.costUsd)}</b><br/>
+            <span style="color:#a78bfa">●</span> 请求：<b>${point.requestCount}</b><br/>
+            <span style="color:#707078">●</span> Token：<b>${formatNumber(point.inputTokens + point.outputTokens)}</b>`;
         },
       },
       grid: { top: 20, right: 20, bottom: 30, left: 50, containLabel: false },
@@ -83,7 +85,7 @@ export function CostTimelineChart({
       ],
       series: [
         {
-          name: "Cost",
+          name: "成本",
           type: "line",
           data: data.map((d) => d.costUsd),
           smooth: true,
@@ -98,7 +100,7 @@ export function CostTimelineChart({
           itemStyle: { color: "#f59e0b" },
         },
         {
-          name: "Requests",
+          name: "请求",
           type: "bar",
           yAxisIndex: 1,
           data: data.map((d) => d.requestCount),
@@ -139,9 +141,9 @@ export function CostByAgentChart({ data }: { readonly data: readonly AgentUsage[
           const agent = p ? sorted.find((d) => d.agentId === p.name) : null;
           if (!p || !agent) return "";
           return `<div style="font-weight:600;margin-bottom:6px">${p.name}</div>
-            ${p.marker} Cost: <b>${formatCost(p.value)}</b><br/>
-            Requests: <b>${formatNumber(agent.requestCount)}</b><br/>
-            Tokens: <b>${formatNumber(agent.totalInputTokens + agent.totalOutputTokens)}</b>`;
+            ${p.marker} 成本：<b>${formatCost(p.value)}</b><br/>
+            请求：<b>${formatNumber(agent.requestCount)}</b><br/>
+            Token：<b>${formatNumber(agent.totalInputTokens + agent.totalOutputTokens)}</b>`;
         },
       },
       grid: { left: 120, right: 30, top: 8, bottom: 8 },
@@ -157,7 +159,11 @@ export function CostByAgentChart({ data }: { readonly data: readonly AgentUsage[
         data: sorted.map((d) => d.agentId),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { ...AXIS_LABEL, color: "#b0b0b8" },
+        axisLabel: {
+          ...AXIS_LABEL,
+          color: "#b0b0b8",
+          formatter: (value: string) => agentDisplayName(value),
+        },
       },
       series: [
         {
@@ -206,8 +212,8 @@ export function CostByModelChart({ data }: { readonly data: readonly ModelUsage[
           const model = p ? sorted.find((d) => d.model === p.name) : null;
           if (!p || !model) return "";
           return `<div style="font-weight:600;margin-bottom:6px">${p.name}</div>
-            ${p.marker} Cost: <b>${formatCost(p.value)}</b><br/>
-            Requests: <b>${formatNumber(model.requestCount)}</b>`;
+            ${p.marker} 成本：<b>${formatCost(p.value)}</b><br/>
+            请求：<b>${formatNumber(model.requestCount)}</b>`;
         },
       },
       grid: { left: 160, right: 30, top: 8, bottom: 8 },
@@ -223,7 +229,13 @@ export function CostByModelChart({ data }: { readonly data: readonly ModelUsage[
         data: sorted.map((d) => d.model),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { ...AXIS_LABEL, color: "#b0b0b8", width: 140, overflow: "truncate" as const },
+        axisLabel: {
+          ...AXIS_LABEL,
+          color: "#b0b0b8",
+          width: 140,
+          overflow: "truncate" as const,
+          formatter: (value: string) => modelDisplayName(value),
+        },
       },
       series: [
         {
@@ -298,10 +310,10 @@ export function TokenDistributionChart({
             },
           },
           data: [
-            { value: pureInput, name: "Input", itemStyle: { color: "#3b82f6" } },
-            { value: output, name: "Output", itemStyle: { color: "#2dd4bf" } },
-            { value: cacheRead, name: "Cache Read", itemStyle: { color: "#a78bfa" } },
-            { value: cacheCreation, name: "Cache Write", itemStyle: { color: "#f59e0b" } },
+            { value: pureInput, name: "输入", itemStyle: { color: "#3b82f6" } },
+            { value: output, name: "输出", itemStyle: { color: "#2dd4bf" } },
+            { value: cacheRead, name: "缓存读取", itemStyle: { color: "#a78bfa" } },
+            { value: cacheCreation, name: "缓存写入", itemStyle: { color: "#f59e0b" } },
           ].filter((d) => d.value > 0),
         },
       ],
@@ -312,10 +324,10 @@ export function TokenDistributionChart({
   useChart(ref, option);
 
   const legendItems = [
-    { label: "Input", value: pureInput, color: "#3b82f6" },
-    { label: "Output", value: output, color: "#2dd4bf" },
-    { label: "Cache Read", value: cacheRead, color: "#a78bfa" },
-    { label: "Cache Write", value: cacheCreation, color: "#f59e0b" },
+    { label: "输入", value: pureInput, color: "#3b82f6" },
+    { label: "输出", value: output, color: "#2dd4bf" },
+    { label: "缓存读取", value: cacheRead, color: "#a78bfa" },
+    { label: "缓存写入", value: cacheCreation, color: "#f59e0b" },
   ].filter((d) => d.value > 0);
 
   return (
@@ -381,7 +393,7 @@ export function ActivityTimelineChart({
     return {
       tooltip: { ...TOOLTIP_STYLE, trigger: "axis" },
       legend: {
-        data: agentIds as string[],
+        data: agentIds.map(agentDisplayName),
         textStyle: {
           color: "#707078",
           fontSize: 11,
@@ -401,7 +413,7 @@ export function ActivityTimelineChart({
       },
       yAxis: {
         type: "value",
-        name: "Requests",
+        name: "请求",
         nameTextStyle: AXIS_LABEL,
         axisLabel: AXIS_LABEL,
         splitLine: SPLIT_LINE,
@@ -410,7 +422,7 @@ export function ActivityTimelineChart({
         minInterval: 1,
       },
       series: agentIds.map((id, i) => ({
-        name: id,
+        name: agentDisplayName(id),
         type: "line" as const,
         smooth: true,
         symbol: "circle",

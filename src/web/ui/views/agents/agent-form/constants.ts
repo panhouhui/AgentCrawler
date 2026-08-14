@@ -11,6 +11,7 @@ export const PROVIDER_MODEL_DEFAULTS: Record<AiProvider, string> = {
   alibaba: "qwen3.7-plus",
   anthropic: "claude-sonnet-4-6",
   openrouter: "",
+  minimax: "MiniMax-M2.7",
   opencode: "deepseek-v4-flash",
 };
 

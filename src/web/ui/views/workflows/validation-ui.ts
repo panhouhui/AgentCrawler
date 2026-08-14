@@ -18,13 +18,13 @@ export function validateWorkflowGraph(
   // No trigger node
   if (triggerNodes.length === 0 && nodes.length > 0) {
     const firstNodeId = nodes[0]!.id;
-    addError(firstNodeId, "Workflow has no trigger node");
+    addError(firstNodeId, "工作流缺少触发器节点");
   }
 
   // Multiple trigger nodes
   if (triggerNodes.length > 1) {
     for (const n of triggerNodes) {
-      addError(n.id, "Only one trigger node is allowed");
+      addError(n.id, "只能有一个触发器节点");
     }
   }
 
@@ -53,19 +53,19 @@ export function validateWorkflowGraph(
         : incoming === 0 && outgoing === 0;
 
     if (isOrphan) {
-      addError(node.id, "Node is not connected to the workflow");
+      addError(node.id, "节点未连接到工作流");
     }
 
     // Required fields
     const data = node.data as WorkflowNodeData;
     if (node.type === "agent" && !("agentId" in data && data.agentId)) {
-      addError(node.id, "Agent node requires an agent to be selected");
+      addError(node.id, "智能体节点需要选择一个智能体");
     }
     if (node.type === "tool" && !("toolName" in data && data.toolName)) {
-      addError(node.id, "Tool node requires a tool to be selected");
+      addError(node.id, "工具节点需要选择一个工具");
     }
     if (node.type === "condition" && !("expression" in data && data.expression)) {
-      addError(node.id, "Condition node requires an expression");
+      addError(node.id, "条件节点需要填写表达式");
     }
   }
 
@@ -86,7 +86,7 @@ export function validateWorkflowGraph(
     }
     for (const node of nodes) {
       if (!reachable.has(node.id) && node.type !== "trigger") {
-        addError(node.id, "Node is unreachable from the trigger");
+        addError(node.id, "节点无法从触发器到达");
       }
     }
   }

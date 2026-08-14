@@ -9,7 +9,7 @@ interface SearchBarProps {
 export function SearchBar({
   value,
   onChange,
-  placeholder = "Search...",
+  placeholder = "搜索...",
 }: SearchBarProps) {
   return (
     <div className="relative">
@@ -30,7 +30,7 @@ export function SearchBar({
           className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md border-none bg-bg-2 text-muted cursor-pointer flex items-center justify-center p-0 hover:text-strong transition-colors"
           type="button"
           onClick={() => onChange("")}
-          aria-label="Clear search"
+          aria-label="清空搜索"
         >
           <X size={12} />
         </button>

@@ -6,8 +6,8 @@ const [, , command, ...rest] = process.argv;
 
 function printHelp(): void {
   const w = process.stdout;
-  w.write(`opencrow v${getVersion()}\n\n`);
-  w.write("Usage: opencrow <command>\n\n");
+  w.write(`AgentHub v${getVersion()}\n\n`);
+  w.write("Usage: agenthub <command>\n\n");
   w.write("Commands:\n");
   w.write("  setup                           Interactive setup wizard\n");
   w.write(
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
             ? "\x1b[31m○\x1b[0m"
             : "?";
       process.stdout.write(
-        `${icon} OpenCrow — ${runtime.status.toUpperCase()}`,
+        `${icon} AgentHub — ${runtime.status.toUpperCase()}`,
       );
       if (runtime.pid) process.stdout.write(` (PID ${runtime.pid})`);
       process.stdout.write("\n");
@@ -90,7 +90,7 @@ async function main(): Promise<void> {
     case "version":
     case "--version":
     case "-v": {
-      process.stdout.write(`opencrow v${getVersion()}\n`);
+      process.stdout.write(`AgentHub v${getVersion()}\n`);
       break;
     }
 

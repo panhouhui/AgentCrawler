@@ -9,7 +9,13 @@ export interface SubagentConfig {
   maxChildren: number;
 }
 
-export type AiProvider = "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode";
+export type AiProvider =
+  | "openrouter"
+  | "agent-sdk"
+  | "alibaba"
+  | "anthropic"
+  | "minimax"
+  | "opencode";
 
 export interface SkillInfo {
   id: string;
@@ -118,7 +124,8 @@ export type ProviderFilter = "all" | AiProvider;
 export function providerLabel(provider: AiProvider): string {
   if (provider === "agent-sdk") return "Agent SDK";
   if (provider === "anthropic") return "Anthropic";
-  if (provider === "alibaba") return "Alibaba";
+  if (provider === "alibaba") return "阿里云";
+  if (provider === "minimax") return "MiniMax";
   if (provider === "opencode") return "OpenCode Zen";
   return "OpenRouter";
 }
@@ -133,7 +140,7 @@ export function getInitials(name: string): string {
 }
 
 export function shortModel(model: string): string {
-  if (!model) return "Default";
+  if (!model) return "默认";
   // Truncate long model names intelligently
   const parts = model.split("/");
   const last = parts[parts.length - 1] ?? model;

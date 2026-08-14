@@ -4,12 +4,10 @@ import { LoadingState, PageHeader, Toggle, Button } from "../components";
 import { useToast } from "../components/Toast";
 import {
   Database,
-  Rss,
   ChevronRight,
   ChevronDown,
   Circle,
   Settings as SettingsIcon,
-  Settings2,
 } from "lucide-react";
 import SignalsSettings from "./settings/SignalsSettings";
 import SigeSettings from "./settings/SigeSettings";
@@ -17,129 +15,25 @@ import IdeasSettings from "./settings/IdeasSettings";
 import GraphSettings from "./settings/GraphSettings";
 import EmbeddingsMemorySettings from "./settings/Embeddings-memorySettings";
 import RuntimeSettings from "./settings/RuntimeSettings";
-import AppleAdsSettings from "./settings/AppleAdsSettings";
 
 /* ── Settings sub-tabs ──
  * The app-level Sidebar routes a single "settings" tab to this view; rather
  * than add many top-level nav entries we expose a grouped "Configuration" area
- * as in-view tabs. "Features" is the original infra/scrapers form; the rest are
+ * as in-view tabs. "Features" covers infra switches; the rest are
  * the config-as-data sections (each self-contained, persisting a partial
  * config_overrides row the loader deep-merges over env + schema defaults).
  */
 const SETTINGS_TABS = [
-  { id: "features", label: "Features" },
-  { id: "signals", label: "Signals" },
-  { id: "ideas", label: "Ideas" },
+  { id: "features", label: "功能开关" },
+  { id: "signals", label: "信号" },
+  { id: "ideas", label: "创意" },
   { id: "sige", label: "SIGE" },
-  { id: "graph", label: "Graph" },
-  { id: "embeddings-memory", label: "Embeddings & Memory" },
-  { id: "runtime", label: "Runtime" },
-  { id: "apple-ads", label: "Apple Ads" },
+  { id: "graph", label: "图谱" },
+  { id: "embeddings-memory", label: "向量与记忆" },
+  { id: "runtime", label: "运行时" },
 ] as const;
 
 type SettingsTabId = (typeof SETTINGS_TABS)[number]["id"];
-
-interface ScraperMeta {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string;
-}
-
-interface FieldDef {
-  readonly key: string;
-  readonly label: string;
-  readonly description: string;
-  readonly min: number;
-  readonly max: number;
-  readonly defaultValue: number;
-}
-
-const SCRAPER_FIELDS: Readonly<Record<string, readonly FieldDef[]>> = {
-  hackernews: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 1, max: 1440, defaultValue: 10 },
-    { key: "maxStories", label: "Max stories", description: "Number of top stories to fetch", min: 10, max: 200, defaultValue: 60 },
-    { key: "commentLimit", label: "Comments per story", description: "Top comments to fetch per story", min: 0, max: 10, defaultValue: 3 },
-  ],
-  "github-search": [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 1, max: 1440, defaultValue: 360 },
-    { key: "minStars", label: "Minimum stars", description: "Only include repos with at least this many stars", min: 1, max: 100000, defaultValue: 500 },
-    { key: "pushedWithinDays", label: "Pushed within days", description: "Only include repos pushed within this many days", min: 1, max: 90, defaultValue: 7 },
-    { key: "maxPages", label: "Max pages", description: "Max pages to fetch (30 repos per page)", min: 1, max: 10, defaultValue: 4 },
-  ],
-  github: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 720 },
-  ],
-  reddit: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 30 },
-  ],
-  producthunt: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 10 },
-  ],
-  appstore: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
-  ],
-  playstore: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
-  ],
-  cryptopanic: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 15 },
-  ],
-  cointelegraph: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 30 },
-  ],
-  reuters: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
-  ],
-  investing_news: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
-  ],
-  investing_calendar: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 30, max: 1440, defaultValue: 120 },
-  ],
-};
-
-const CONFIGURABLE_SCRAPERS = new Set(Object.keys(SCRAPER_FIELDS));
-
-// Maps scraper ID → the memory source kind(s) for chunk profile config
-// Only include kinds that benefit from content-limit tuning
-const SCRAPER_TO_CHUNK_KINDS: Readonly<Record<string, readonly string[]>> = {
-  hackernews: ["hackernews_story"],
-  "github-search": ["github_repo"],
-  github: ["github_repo"],
-  reddit: ["reddit_post"],
-  producthunt: ["producthunt_product"],
-  appstore: ["appstore_review", "appstore_app"],
-  playstore: ["playstore_review", "playstore_app"],
-  cryptopanic: ["cryptopanic_news"],
-  cointelegraph: ["cointelegraph_news"],
-  reuters: ["reuters_news"],
-  investing_news: ["investingnews_news"],
-};
-
-// Which kinds have contentMaxChars / commentMaxChars fields
-const KINDS_WITH_CONTENT_MAX = new Set([
-  "hackernews_story",
-  "reddit_post",
-  "github_repo",
-  "reuters_news",
-  "cointelegraph_news",
-  "cryptopanic_news",
-  "investingnews_news",
-  "idea",
-]);
-const KINDS_WITH_COMMENT_MAX = new Set(["hackernews_story", "reddit_post"]);
-
-interface ChunkProfile {
-  readonly maxTokens: number;
-  readonly overlap: number;
-  readonly contentMaxChars?: number;
-  readonly commentMaxChars?: number;
-}
-
-function getDefaults(scraperId: string): Record<string, number> {
-  const fields = SCRAPER_FIELDS[scraperId] ?? [];
-  return Object.fromEntries(fields.map((f) => [f.key, f.defaultValue]));
-}
 
 interface EmbeddingsConfig {
   readonly provider: "openrouter";
@@ -149,10 +43,6 @@ interface EmbeddingsConfig {
 }
 
 interface FeaturesResponse {
-  readonly scrapers: {
-    readonly available: readonly ScraperMeta[];
-    readonly enabled: readonly string[];
-  };
   readonly qdrant: { readonly enabled: boolean };
   readonly embeddings: EmbeddingsConfig;
 }
@@ -171,7 +61,7 @@ function StatusPill({ enabled }: { readonly enabled: boolean }) {
         className={`w-1.5 h-1.5 ${enabled ? "fill-success" : "fill-muted"}`}
         strokeWidth={0}
       />
-      {enabled ? "Active" : "Off"}
+      {enabled ? "已启用" : "关闭"}
     </span>
   );
 }
@@ -215,195 +105,6 @@ function ConfigField({
     </div>
   );
 }
-
-/* ── Chunk profile form for a single kind ── */
-function ChunkProfileForm({
-  kind,
-}: {
-  readonly kind: string;
-}) {
-  const { success, error: toastError } = useToast();
-  const [profile, setProfile] = useState<ChunkProfile | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ data: ChunkProfile }>(`/api/features/chunk-profiles/${kind}`)
-      .then((res) => { if (!cancelled) setProfile(res.data); })
-      .catch(() => { if (!cancelled) toastError(`Failed to load chunk profile for ${kind}.`); });
-    return () => { cancelled = true; };
-  }, [kind]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleSave() {
-    if (!profile) return;
-    setSaving(true);
-    try {
-      await apiFetch(`/api/features/chunk-profiles/${kind}`, {
-        method: "PUT",
-        body: JSON.stringify(profile),
-      });
-      success("Chunk profile saved.");
-    } catch {
-      toastError("Failed to save chunk profile.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!profile) return <p className="text-xs text-muted py-1">Loading…</p>;
-
-  const hasContent = KINDS_WITH_CONTENT_MAX.has(kind);
-  const hasComment = KINDS_WITH_COMMENT_MAX.has(kind);
-
-  return (
-    <div className="flex flex-col gap-2 pt-1">
-      <div className="text-xs font-medium text-muted uppercase tracking-wide mb-1">
-        {kind.replace(/_/g, " ")} — Embedding Profile
-      </div>
-      <ConfigField
-        label="Chunk size (tokens)"
-        description="Max tokens per text chunk sent to embedder"
-        value={profile.maxTokens}
-        min={50}
-        max={2000}
-        onChange={(v) => setProfile((p) => p ? { ...p, maxTokens: v } : p)}
-      />
-      <ConfigField
-        label="Chunk overlap (tokens)"
-        description="Token overlap between adjacent chunks"
-        value={profile.overlap}
-        min={0}
-        max={Math.floor(profile.maxTokens / 2)}
-        onChange={(v) => setProfile((p) => p ? { ...p, overlap: v } : p)}
-      />
-      {hasContent && (
-        <ConfigField
-          label="Max content length (chars)"
-          description="Truncate content body before chunking"
-          value={profile.contentMaxChars ?? 400}
-          min={100}
-          max={20000}
-          onChange={(v) => setProfile((p) => p ? { ...p, contentMaxChars: v } : p)}
-        />
-      )}
-      {hasComment && (
-        <ConfigField
-          label="Max comment length (chars)"
-          description="Truncate each comment before chunking"
-          value={profile.commentMaxChars ?? 800}
-          min={50}
-          max={5000}
-          onChange={(v) => setProfile((p) => p ? { ...p, commentMaxChars: v } : p)}
-        />
-      )}
-      <div className="flex justify-end pt-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSave}
-          disabled={saving}
-          loading={saving}
-        >
-          Save profile
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ── Generic scraper config form ── */
-function ScraperConfigForm({
-  scraperId,
-  onClose,
-}: {
-  readonly scraperId: string;
-  readonly onClose: () => void;
-}) {
-  const { success, error: toastError } = useToast();
-  const fields = SCRAPER_FIELDS[scraperId] ?? [];
-  const chunkKinds = SCRAPER_TO_CHUNK_KINDS[scraperId] ?? [];
-  const [config, setConfig] = useState<Record<string, number>>(getDefaults(scraperId));
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await apiFetch<{ data: Record<string, number> }>(
-          `/api/features/scraper-config/${scraperId}`,
-        );
-        if (!cancelled) setConfig(res.data);
-      } catch {
-        if (!cancelled) toastError("Failed to load scraper config.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [scraperId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleSave() {
-    setSaving(true);
-    try {
-      await apiFetch(`/api/features/scraper-config/${scraperId}`, {
-        method: "PUT",
-        body: JSON.stringify(config),
-      });
-      success("Scraper config saved.");
-      onClose();
-    } catch {
-      toastError("Failed to save scraper config.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="mt-2 mx-0 bg-bg-2 border border-border rounded-lg p-3">
-      {loading ? (
-        <p className="text-xs text-muted py-1">Loading config…</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {fields.map((f) => (
-            <ConfigField
-              key={f.key}
-              label={f.label}
-              description={f.description}
-              value={config[f.key] ?? f.defaultValue}
-              min={f.min}
-              max={f.max}
-              onChange={(v) => setConfig((prev) => ({ ...prev, [f.key]: v }))}
-            />
-          ))}
-          <div className="flex justify-end gap-2 pt-1">
-            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleSave}
-              disabled={saving}
-              loading={saving}
-            >
-              Save
-            </Button>
-          </div>
-
-          {chunkKinds.length > 0 && (
-            <div className="border-t border-border pt-3 flex flex-col gap-4">
-              {chunkKinds.map((kind) => (
-                <ChunkProfileForm key={kind} kind={kind} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 
 /* ── Text config field ── */
 function TextConfigField({
@@ -470,9 +171,9 @@ function EmbeddingsSection({
       });
       onSave(draft);
       window.dispatchEvent(new Event("features-changed"));
-      success("Embeddings config saved.");
+      success("向量配置已保存。");
     } catch {
-      toastError("Failed to save embeddings config.");
+      toastError("向量配置保存失败。");
     } finally {
       setSaving(false);
     }
@@ -490,10 +191,10 @@ function EmbeddingsSection({
         ) : (
           <ChevronRight className="w-3 h-3" />
         )}
-        <span>Embeddings Configuration</span>
+        <span>向量配置</span>
         {isDirty && (
           <span className="text-xs font-medium text-warning bg-warning-subtle px-1.5 py-0.5 rounded-full ml-1">
-            Unsaved
+            未保存
           </span>
         )}
       </button>
@@ -501,16 +202,16 @@ function EmbeddingsSection({
       {expanded && (
         <div className="mt-2 bg-bg-2 border border-border rounded-lg p-3 flex flex-col gap-3">
           <TextConfigField
-            label="OpenRouter Model"
-            description="Model ID on OpenRouter"
+            label="OpenRouter 模型"
+            description="OpenRouter 上的模型 ID"
             value={draft.openrouterModel}
             onChange={(v) => update("openrouterModel", v)}
             placeholder="openai/text-embedding-3-small"
           />
 
           <ConfigField
-            label="Dimensions"
-            description="Vector embedding dimensions (must match Qdrant collection)"
+            label="向量维度"
+            description="向量嵌入维度，需要与 Qdrant collection 保持一致"
             value={draft.dimensions}
             min={32}
             max={4096}
@@ -518,8 +219,8 @@ function EmbeddingsSection({
           />
 
           <ConfigField
-            label="Batch Size"
-            description="Max texts per API batch"
+            label="批量大小"
+            description="每批 API 请求最多处理的文本数"
             value={draft.batchSize}
             min={1}
             max={256}
@@ -534,7 +235,7 @@ function EmbeddingsSection({
                 onClick={() => setDraft(config)}
                 disabled={saving}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 variant="primary"
@@ -543,7 +244,7 @@ function EmbeddingsSection({
                 disabled={saving}
                 loading={saving}
               >
-                Save
+                保存
               </Button>
             </div>
           )}
@@ -553,19 +254,12 @@ function EmbeddingsSection({
   );
 }
 
-/* ── Features section (original infra + scrapers form) ── */
+/* ── Features section ── */
 function FeaturesSettings() {
   const { success, error: toastError } = useToast();
 
   const [features, setFeatures] = useState<FeaturesResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [enabledScrapers, setEnabledScrapers] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
-  const [savingScrapers, setSavingScrapers] = useState<ReadonlySet<string>>(
-    new Set(),
-  );
-  const [openConfigId, setOpenConfigId] = useState<string | null>(null);
   const [qdrantSaving, setQdrantSaving] = useState(false);
   const [embeddingsConfig, setEmbeddingsConfig] =
     useState<EmbeddingsConfig | null>(null);
@@ -577,10 +271,9 @@ function FeaturesSettings() {
         const res = await apiFetch<{ data: FeaturesResponse }>("/api/features");
         if (cancelled) return;
         setFeatures(res.data);
-        setEnabledScrapers(new Set(res.data.scrapers.enabled));
         setEmbeddingsConfig(res.data.embeddings);
       } catch {
-        if (!cancelled) toastError("Failed to load feature settings.");
+        if (!cancelled) toastError("功能设置加载失败。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -589,43 +282,6 @@ function FeaturesSettings() {
       cancelled = true;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function handleScraperToggle(id: string, checked: boolean) {
-    const next = new Set(enabledScrapers);
-    if (checked) {
-      next.add(id);
-    } else {
-      next.delete(id);
-    }
-    setEnabledScrapers(next);
-    setSavingScrapers((prev) => new Set([...prev, id]));
-
-    try {
-      await apiFetch("/api/features/scrapers", {
-        method: "PUT",
-        body: JSON.stringify({ enabled: [...next] }),
-      });
-      window.dispatchEvent(new Event("features-changed"));
-      const scraper = features?.scrapers.available.find((s) => s.id === id);
-      success(`${scraper?.name ?? id} ${checked ? "enabled" : "disabled"}.`);
-    } catch {
-      // Revert only this toggle's change via functional updater so concurrent
-      // sibling toggles are not clobbered.
-      setEnabledScrapers((prev) => {
-        const reverted = new Set(prev);
-        if (checked) reverted.delete(id);
-        else reverted.add(id);
-        return reverted;
-      });
-      toastError("Failed to save scraper setting.");
-    } finally {
-      setSavingScrapers((prev) => {
-        const s = new Set(prev);
-        s.delete(id);
-        return s;
-      });
-    }
-  }
 
   async function handleQdrantToggle(checked: boolean) {
     if (!features) return;
@@ -639,15 +295,15 @@ function FeaturesSettings() {
         prev ? { ...prev, qdrant: { enabled: checked } } : prev,
       );
       window.dispatchEvent(new Event("features-changed"));
-      success(`Qdrant ${checked ? "enabled" : "disabled"}.`);
+      success(`Qdrant ${checked ? "已启用" : "已关闭"}。`);
     } catch {
-      toastError("Failed to update Qdrant setting.");
+      toastError("Qdrant 设置更新失败。");
     } finally {
       setQdrantSaving(false);
     }
   }
 
-  if (loading) return <LoadingState message="Loading settings..." />;
+  if (loading) return <LoadingState message="正在加载设置..." />;
   if (!features) return null;
 
   return (
@@ -655,13 +311,7 @@ function FeaturesSettings() {
       <div className="flex items-center justify-end mb-3 gap-2 text-xs text-muted">
         <SettingsIcon className="w-3.5 h-3.5" />
         <span>
-          {[
-            features.qdrant.enabled && "Qdrant",
-            enabledScrapers.size > 0 &&
-              `${enabledScrapers.size} scraper${enabledScrapers.size === 1 ? "" : "s"}`,
-          ]
-            .filter(Boolean)
-            .join(" + ") || "All features disabled"}
+          {features.qdrant.enabled ? "Qdrant" : "全部功能已关闭"}
         </span>
       </div>
 
@@ -676,12 +326,12 @@ function FeaturesSettings() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2.5 mb-1">
                   <h3 className="text-sm font-semibold text-strong m-0">
-                    Qdrant (RAG Memory)
+                    Qdrant（RAG 记忆）
                   </h3>
                   <StatusPill enabled={features.qdrant.enabled} />
                 </div>
                 <p className="text-xs text-muted m-0 leading-relaxed">
-                  Vector database for agent long-term memory and semantic search.
+                  用于智能体长期记忆和语义搜索的向量数据库。
                 </p>
               </div>
             </div>
@@ -693,8 +343,8 @@ function FeaturesSettings() {
           </div>
           <div className="mt-3 ml-[50px] text-xs text-faint">
             {features.qdrant.enabled
-              ? "Agents can read and write memory via RAG retrieval."
-              : "RAG memory is unavailable for all agents."}
+              ? "智能体可以通过 RAG 检索读写长期记忆。"
+              : "所有智能体暂时无法使用 RAG 记忆。"}
           </div>
           {features.qdrant.enabled && embeddingsConfig && (
             <EmbeddingsSection
@@ -704,96 +354,6 @@ function FeaturesSettings() {
           )}
         </div>
 
-        {/* Scrapers */}
-        <div className="bg-bg-1 border border-border rounded-xl transition-all duration-200 hover:border-border-hover">
-          <div className="flex items-center gap-3.5 p-5 pb-0">
-            <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-pink-subtle text-pink">
-              <Rss className="w-[18px] h-[18px]" />
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2.5 mb-1">
-                <h3 className="text-sm font-semibold text-strong m-0">
-                  Scrapers
-                </h3>
-                <span className="text-xs font-medium text-muted bg-bg-2 px-2 py-0.5 rounded-md font-mono">
-                  {enabledScrapers.size}/{features.scrapers.available.length}
-                </span>
-              </div>
-              <p className="text-xs text-muted m-0">
-                Data scrapers for feeds, social, and market intelligence
-              </p>
-            </div>
-          </div>
-
-          <div className="px-5 pb-5 pt-3">
-            {features.scrapers.available.length === 0 ? (
-              <p className="text-sm text-muted py-4">
-                No scrapers available.
-              </p>
-            ) : (
-              <div className="flex flex-col">
-                {features.scrapers.available.map((scraper, i) => {
-                  const isConfigurable = CONFIGURABLE_SCRAPERS.has(scraper.id);
-                  const isConfigOpen = openConfigId === scraper.id;
-                  const isLast = i === features.scrapers.available.length - 1;
-                  return (
-                    <div key={scraper.id}>
-                      <div
-                        className={`flex items-center justify-between py-3 ${
-                          !isLast || isConfigOpen ? "border-b border-border" : ""
-                        }`}
-                      >
-                        <div className="min-w-0 pr-4">
-                          <div className="text-sm font-medium text-foreground">
-                            {scraper.name}
-                          </div>
-                          {scraper.description && (
-                            <div className="text-xs text-muted mt-0.5">
-                              {scraper.description}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isConfigurable && (
-                            <button
-                              type="button"
-                              title="Configure"
-                              onClick={() =>
-                                setOpenConfigId((prev) =>
-                                  prev === scraper.id ? null : scraper.id,
-                                )
-                              }
-                              className={`p-1 rounded-md transition-colors ${
-                                isConfigOpen
-                                  ? "text-accent bg-accent-subtle"
-                                  : "text-muted hover:text-foreground hover:bg-bg-2"
-                              }`}
-                            >
-                              <Settings2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          <Toggle
-                            checked={enabledScrapers.has(scraper.id)}
-                            onChange={(checked) =>
-                              handleScraperToggle(scraper.id, checked)
-                            }
-                            disabled={savingScrapers.has(scraper.id)}
-                          />
-                        </div>
-                      </div>
-                      {isConfigOpen && (
-                        <ScraperConfigForm
-                          scraperId={scraper.id}
-                          onClose={() => setOpenConfigId(null)}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -837,8 +397,8 @@ export default function Settings() {
   return (
     <div className="max-w-[760px]">
       <PageHeader
-        title="Settings"
-        subtitle="Manage infrastructure, signal, idea, SIGE, graph, and runtime configuration"
+        title="设置"
+        subtitle="管理基础设施、信号、创意、SIGE、图谱和运行时配置"
       />
       <SettingsTabs active={tab} onSelect={setTab} />
       {tab === "features" && <FeaturesSettings />}
@@ -848,7 +408,6 @@ export default function Settings() {
       {tab === "graph" && <GraphSettings />}
       {tab === "embeddings-memory" && <EmbeddingsMemorySettings />}
       {tab === "runtime" && <RuntimeSettings />}
-      {tab === "apple-ads" && <AppleAdsSettings />}
     </div>
   );
 }

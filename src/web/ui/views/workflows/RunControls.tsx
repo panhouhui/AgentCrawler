@@ -20,11 +20,11 @@ interface RunControlsProps {
 }
 
 const statusConfig: Record<ExecutionStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: "pending", color: "text-zinc-400", bg: "bg-zinc-500/10" },
-  running: { label: "running", color: "text-blue-400", bg: "bg-blue-500/15" },
-  completed: { label: "completed", color: "text-emerald-400", bg: "bg-emerald-500/15" },
-  failed: { label: "failed", color: "text-red-400", bg: "bg-red-500/15" },
-  cancelled: { label: "cancelled", color: "text-zinc-400", bg: "bg-zinc-500/10" },
+  pending: { label: "等待中", color: "text-zinc-400", bg: "bg-zinc-500/10" },
+  running: { label: "运行中", color: "text-blue-400", bg: "bg-blue-500/15" },
+  completed: { label: "已完成", color: "text-emerald-400", bg: "bg-emerald-500/15" },
+  failed: { label: "失败", color: "text-red-400", bg: "bg-red-500/15" },
+  cancelled: { label: "已取消", color: "text-zinc-400", bg: "bg-zinc-500/10" },
 };
 
 export function RunControls({
@@ -55,7 +55,7 @@ export function RunControls({
       const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message: unknown }).message)
-          : "Failed to start workflow";
+          : "启动工作流失败";
       setRunError(message);
     } finally {
       setRunning(false);
@@ -64,9 +64,9 @@ export function RunControls({
 
   const isDisabled = !workflowId || isDirty;
   const disabledTitle = !workflowId
-    ? "Save the workflow first"
+    ? "请先保存工作流"
     : isDirty
-      ? "Save changes before running"
+      ? "运行前请先保存修改"
       : undefined;
 
   const steps = [...stepStatuses.values()];
@@ -87,7 +87,7 @@ export function RunControls({
         )}
       >
         <Play size={13} />
-        Run
+        运行
       </Button>
 
       {executionStatus && config && (
@@ -102,7 +102,7 @@ export function RunControls({
               ? "border-current/20"
               : "border-transparent hover:border-current/20",
           )}
-          title={panelOpen ? "Hide execution panel" : "Show execution panel"}
+          title={panelOpen ? "隐藏执行面板" : "显示执行面板"}
         >
           {executionStatus === "running" && (
             <Circle size={6} className="fill-current animate-pulse" />

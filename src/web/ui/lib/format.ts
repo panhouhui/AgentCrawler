@@ -1,11 +1,11 @@
 /**
- * Shared formatting utilities for the OpenCrow web UI.
+ * Shared formatting utilities for the AgentHub web UI.
  * Replaces ~20 locally-defined duplicates across view files.
  */
 
-/** Format a unix epoch (seconds) to a locale string. Returns "Never" for falsy values. */
+/** Format a unix epoch (seconds) to a locale string. Returns a Chinese empty-state label for falsy values. */
 export function formatTime(epoch: number | null): string {
-  if (!epoch) return "Never";
+  if (!epoch) return "从未";
   return new Date(epoch * 1000).toLocaleString();
 }
 
@@ -19,10 +19,10 @@ export function formatNumber(n: number): string {
 /** Format a unix epoch (seconds) to a relative time string (e.g. "5m ago"). */
 export function relativeTime(epoch: number): string {
   const diff = Math.floor(Date.now() / 1000) - epoch;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
+  return `${Math.floor(diff / 86400)} 天前`;
 }
 
 /** Format seconds into a human-readable uptime (e.g. "2d 5h 3m"). */
@@ -31,10 +31,10 @@ export function formatUptime(seconds: number): string {
   const h = Math.floor((seconds % 86400) / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
+  if (d > 0) return `${d}天 ${h}小时 ${m}分钟`;
+  if (h > 0) return `${h}小时 ${m}分钟 ${s}秒`;
+  if (m > 0) return `${m}分钟 ${s}秒`;
+  return `${s}秒`;
 }
 
 /** Format a unix epoch (seconds) to HH:MM:SS time-only string. */
@@ -61,9 +61,9 @@ export function formatLogTimestamp(ts: string): string {
 export function formatAge(epoch: number): string {
   if (!epoch) return "";
   const diff = Math.floor(Date.now() / 1000) - epoch;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return `${Math.floor(diff / 86400)}d`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时`;
+  return `${Math.floor(diff / 86400)}天`;
 }
 
 /** Format an ISO date string to YYYY-MM-DD. */
@@ -75,41 +75,39 @@ export function formatDate(dateStr: string): string {
 /** Format an ISO timestamp string to "Mon DD" style. */
 export function formatShortDate(ts: string): string {
   const d = new Date(ts);
-  const mon = d.toLocaleString("en", { month: "short" });
-  const day = d.getDate();
-  return `${mon} ${day}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
 /** Like relativeTime but includes "yesterday" for 1-day-old epochs. */
 export function timeAgo(epoch: number): string {
   const diff = Math.floor(Date.now() / 1000) - epoch;
-  if (diff < 60) return "just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60) return "刚刚";
+  if (diff < 3600) return `${Math.floor(diff / 60)} 分钟前`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} 小时前`;
   const days = Math.floor(diff / 86400);
-  if (days === 1) return "yesterday";
-  return `${days}d ago`;
+  if (days === 1) return "昨天";
+  return `${days} 天前`;
 }
 
 /** Format a future epoch (seconds) as a countdown string. */
 export function formatCountdown(targetEpoch: number): string {
   const diff = targetEpoch - Math.floor(Date.now() / 1000);
-  if (diff <= 0) return "now";
+  if (diff <= 0) return "现在";
   const hrs = Math.floor(diff / 3600);
   const mins = Math.floor((diff % 3600) / 60);
   const secs = diff % 60;
-  if (hrs > 0) return `${hrs}h ${mins}m`;
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
+  if (hrs > 0) return `${hrs}小时 ${mins}分钟`;
+  if (mins > 0) return `${mins}分钟 ${secs}秒`;
+  return `${secs}秒`;
 }
 
 /** Format a minute interval as a human label (e.g. "Every 30 min", "Every 2h"). */
 export function intervalLabel(minutes: number): string {
-  if (minutes < 60) return `Every ${minutes} min`;
+  if (minutes < 60) return `每 ${minutes} 分钟`;
   const hrs = Math.floor(minutes / 60);
   const rem = minutes % 60;
-  if (rem === 0) return `Every ${hrs}h`;
-  return `Every ${hrs}h ${rem}m`;
+  if (rem === 0) return `每 ${hrs} 小时`;
+  return `每 ${hrs} 小时 ${rem} 分钟`;
 }
 
 /** Format USD cost with appropriate precision. */
@@ -123,11 +121,11 @@ export function formatCost(usd: number): string {
 /** Format milliseconds as a human-readable duration (e.g. "2.3s", "1m 30s"). */
 export function formatDuration(ms: number): string {
   if (!ms) return "\u2014";
-  if (ms < 1000) return `${ms}ms`;
+  if (ms < 1000) return `${ms}毫秒`;
   const sec = ms / 1000;
   return sec < 60
-    ? `${sec.toFixed(1)}s`
-    : `${Math.floor(sec / 60)}m ${Math.round(sec % 60)}s`;
+    ? `${sec.toFixed(1)}秒`
+    : `${Math.floor(sec / 60)}分钟 ${Math.round(sec % 60)}秒`;
 }
 
 /** Parse a JSON array string, returning [] on failure. */

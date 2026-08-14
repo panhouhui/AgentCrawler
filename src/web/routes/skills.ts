@@ -27,7 +27,7 @@ const generateInputSchema = z.object({
   prompt: z.string().min(1, "Prompt is required").max(2000).trim(),
 });
 
-const GENERATE_SYSTEM_PROMPT = `You are a skill definition generator for an AI agent platform called OpenCrow.
+const GENERATE_SYSTEM_PROMPT = `You are a skill definition generator for an AI agent platform called AgentHub.
 
 When the user describes what kind of skill they want, you generate a complete skill definition.
 

@@ -37,7 +37,7 @@ export default function SidebarSection({
           onClick={() => setCollapsed((c) => !c)}
           aria-expanded={!collapsed}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-faint">
+          <span className="text-[11px] font-semibold tracking-wide text-faint">
             {section.title}
           </span>
           <span className={cn(
@@ -49,7 +49,7 @@ export default function SidebarSection({
         </button>
       ) : (
         <div className="flex items-center justify-between px-3 py-2 select-none max-lg:hidden max-md:flex">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-faint">
+          <span className="text-[11px] font-semibold tracking-wide text-faint">
             {section.title}
           </span>
         </div>

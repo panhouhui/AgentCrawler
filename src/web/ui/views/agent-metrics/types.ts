@@ -65,10 +65,10 @@ export interface CronJob {
 // ============================================================================
 
 export const RANGES = [
-  { id: "24h", label: "24h", seconds: 86400 },
-  { id: "7d", label: "7d", seconds: 7 * 86400 },
-  { id: "30d", label: "30d", seconds: 30 * 86400 },
-  { id: "all", label: "All", seconds: 0 },
+  { id: "24h", label: "24 小时", seconds: 86400 },
+  { id: "7d", label: "7 天", seconds: 7 * 86400 },
+  { id: "30d", label: "30 天", seconds: 30 * 86400 },
+  { id: "all", label: "全部", seconds: 0 },
 ] as const;
 
 export type RangeId = (typeof RANGES)[number]["id"];
@@ -96,6 +96,43 @@ export const AXIS_LABEL = {
   fontSize: 11,
   fontFamily: "'JetBrains Mono', monospace",
 } as const;
+
+export const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  "china-relevance-gate": "中国相关性与风险判断智能体",
+  "x-social-agent": "X 社交智能体",
+  "telegram-social-agent": "Telegram 社交智能体",
+  "lihkg-social-agent": "LIHKG 社交智能体",
+  "facebook-social-agent": "Facebook 社交智能体",
+  "github-social-agent": "GitHub 社交智能体",
+  "instagram-social-agent": "Instagram 社交智能体",
+  "lien-social-agent": "Lien 社交智能体",
+  "netlight-social-agent": "NetLight 社交智能体",
+  "ptt-social-agent": "PTT 社交智能体",
+  "youtube-social-agent": "YouTube 社交智能体",
+  "social-fusion-agent": "社交融合总控智能体",
+  default: "默认智能体",
+};
+
+export const SOURCE_DISPLAY_NAMES: Record<string, string> = {
+  preview: "预览",
+  chat: "对话",
+  cron: "定时任务",
+  "社交融合": "社交融合",
+};
+
+export function agentDisplayName(agentId: string): string {
+  return AGENT_DISPLAY_NAMES[agentId] ?? agentId;
+}
+
+export function sourceDisplayName(source: string): string {
+  return SOURCE_DISPLAY_NAMES[source] ?? source;
+}
+
+export function modelDisplayName(model: string): string {
+  if (model.toLowerCase().includes("minimax")) return model.replace(/-/g, " ");
+  if (model.toLowerCase().includes("claude")) return `Claude ${model.replace(/^claude-/, "").replace(/-/g, " ")}`;
+  return model;
+}
 
 export const SPLIT_LINE = {
   lineStyle: { color: "#1e1e24", type: "dashed" as const, opacity: 0.5 },

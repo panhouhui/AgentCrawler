@@ -5,9 +5,6 @@ import {
   MessageSquare,
   Hash,
   Wrench,
-  AtSign,
-  Rocket,
-  Flame,
   MessageCircle,
   Github,
   GraduationCap,
@@ -19,7 +16,6 @@ import {
   BarChart3,
   GitBranch,
   Brain,
-  Smartphone,
   Settings,
   MessagesSquare,
   Workflow,
@@ -28,6 +24,15 @@ import {
   Lightbulb,
   Sparkles,
   Search,
+  Network,
+  Send,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Youtube,
+  Radio,
+  Cable,
+  AtSign,
 } from "lucide-react";
 
 export type Tab =
@@ -37,13 +42,16 @@ export type Tab =
   | "skills"
   | "sessions"
   | "channels"
-  | "x-accounts"
-  | "producthunt"
-  | "hackernews"
-  | "reddit"
-  | "github"
-  | "appstore"
-  | "playstore"
+  | "crawler-x"
+  | "crawler-facebook"
+  | "crawler-github"
+  | "crawler-instagram"
+  | "crawler-lien"
+  | "crawler-lihkg"
+  | "crawler-netlight"
+  | "crawler-ptt"
+  | "crawler-telegram"
+  | "crawler-youtube"
   | "news"
   | "cron"
   | "processes"
@@ -59,7 +67,9 @@ export type Tab =
   | "sige-ideas"
   | "pipelines"
   | "pipeline-ideas"
-  | "keyword-research";
+  | "keyword-research"
+  | "social-fusion"
+  | "kan-push";
 
 export interface NavItem {
   readonly id: Tab;
@@ -75,102 +85,118 @@ export interface NavSection {
 
 export const VALID_TABS = new Set<Tab>([
   "overview", "chat", "agents", "skills", "sessions", "channels",
-  "x-accounts", "producthunt", "hackernews", "reddit",
-  "github", "appstore", "playstore",
+  "crawler-x", "crawler-facebook", "crawler-github", "crawler-instagram", "crawler-lien",
+  "crawler-lihkg", "crawler-netlight", "crawler-ptt", "crawler-telegram", "crawler-youtube",
   "news", "cron",
   "processes", "system", "tools", "agent-metrics", "routing",
   "memory", "logs", "settings", "workflows", "sige", "sige-ideas", "pipelines", "pipeline-ideas",
-  "keyword-research",
+  "keyword-research", "social-fusion", "kan-push",
 ]);
 
 export const TAB_TITLES: Record<Tab, string> = {
-  overview: "Overview",
-  chat: "Chat",
-  agents: "Agents",
-  skills: "Skills",
-  sessions: "Sessions",
-  channels: "Channels",
-  "x-accounts": "X / Twitter",
-  producthunt: "Product Hunt",
-  hackernews: "Hacker News",
-  reddit: "Reddit",
-  github: "GitHub",
-  appstore: "App Store",
-  playstore: "Play Store",
-  news: "News Feed",
-  cron: "Cron",
-  processes: "Processes",
-  system: "Metrics",
-  tools: "Tools",
-  "agent-metrics": "Agent Metrics",
-  routing: "Routing",
-  memory: "Memory",
-  logs: "Logs",
-  settings: "Settings",
-  workflows: "Workflows",
+  overview: "总览",
+  chat: "对话",
+  agents: "智能体",
+  skills: "技能",
+  sessions: "会话",
+  channels: "渠道",
+  "crawler-x": "X 爬虫配置",
+  "crawler-facebook": "Facebook 爬虫配置",
+  "crawler-github": "GitHub 爬虫配置",
+  "crawler-instagram": "instagram 爬虫配置",
+  "crawler-lien": "Lien 爬虫配置",
+  "crawler-lihkg": "Lihkg 爬虫配置",
+  "crawler-netlight": "NetLight 爬虫配置",
+  "crawler-ptt": "PTT 爬虫配置",
+  "crawler-telegram": "Telegram 爬虫配置",
+  "crawler-youtube": "YouTube 爬虫配置",
+  news: "新闻源",
+  cron: "定时任务",
+  processes: "进程",
+  system: "指标",
+  tools: "工具",
+  "agent-metrics": "智能体指标",
+  routing: "路由",
+  memory: "记忆",
+  logs: "日志",
+  settings: "设置",
+  workflows: "工作流",
   sige: "SIGE",
-  "sige-ideas": "SIGE Ideas",
-  pipelines: "Pipelines",
-  "pipeline-ideas": "Pipeline Ideas",
-  "keyword-research": "Keyword Research",
+  "sige-ideas": "SIGE 创意",
+  pipelines: "管线",
+  "pipeline-ideas": "管线创意",
+  "keyword-research": "关键词研究",
+  "social-fusion": "社交融合",
+  "kan-push": "kan推送配置",
 };
 
 export const NAV_SECTIONS: readonly NavSection[] = [
   {
-    title: "Dashboard",
+    title: "控制台",
     collapsible: false,
-    items: [{ id: "overview", label: "Overview", Icon: Home }],
+    items: [{ id: "overview", label: "总览", Icon: Home }],
   },
   {
-    title: "Agents",
+    title: "智能体",
     collapsible: false,
     items: [
-      { id: "chat", label: "Chat", Icon: MessagesSquare },
-      { id: "agents", label: "Agents", Icon: Bot },
-      { id: "skills", label: "Skills", Icon: GraduationCap },
-      { id: "tools", label: "Tools", Icon: Wrench },
-      { id: "agent-metrics", label: "Agent Metrics", Icon: BarChart3 },
-      { id: "sessions", label: "Sessions", Icon: MessageSquare },
-      { id: "routing", label: "Routing", Icon: GitBranch },
-      { id: "channels", label: "Channels", Icon: Hash },
-      { id: "workflows", label: "Workflows", Icon: Workflow },
+      { id: "social-fusion", label: "社交融合", Icon: Network },
+      { id: "agents", label: "智能体列表", Icon: Bot },
+      { id: "chat", label: "对话", Icon: MessagesSquare },
+      { id: "skills", label: "技能", Icon: GraduationCap },
+      { id: "tools", label: "工具", Icon: Wrench },
+      { id: "agent-metrics", label: "智能体指标", Icon: BarChart3 },
+      { id: "sessions", label: "会话", Icon: MessageSquare },
+      { id: "routing", label: "路由", Icon: GitBranch },
+      { id: "channels", label: "渠道", Icon: Hash },
+      { id: "workflows", label: "工作流", Icon: Workflow },
     ],
   },
   {
-    title: "Sources",
+    title: "爬虫配置",
     collapsible: true,
     items: [
-      { id: "x-accounts", label: "X / Twitter", Icon: AtSign },
-      { id: "producthunt", label: "Product Hunt", Icon: Rocket },
-      { id: "hackernews", label: "Hacker News", Icon: Flame },
-      { id: "reddit", label: "Reddit", Icon: MessageCircle },
-      { id: "github", label: "GitHub", Icon: Github },
-      { id: "appstore", label: "App Store", Icon: Smartphone },
-      { id: "playstore", label: "Play Store", Icon: Smartphone },
+      { id: "crawler-x", label: "X", Icon: AtSign },
+      { id: "crawler-facebook", label: "Facebook", Icon: Facebook },
+      { id: "crawler-github", label: "GitHub", Icon: Github },
+      { id: "crawler-instagram", label: "instagram", Icon: Instagram },
+      { id: "crawler-lien", label: "Lien", Icon: Linkedin },
+      { id: "crawler-lihkg", label: "Lihkg", Icon: MessageCircle },
+      { id: "crawler-netlight", label: "NetLight", Icon: Network },
+      { id: "crawler-ptt", label: "PTT", Icon: Radio },
+      { id: "crawler-telegram", label: "Telegram", Icon: Cable },
+      { id: "crawler-youtube", label: "YouTube", Icon: Youtube },
     ],
   },
   {
-    title: "Intelligence",
+    title: "情报分析",
     collapsible: true,
     items: [
-      { id: "news", label: "News Feed", Icon: Newspaper },
-      { id: "keyword-research", label: "Keyword Research", Icon: Search },
-      { id: "pipelines", label: "Pipelines", Icon: Zap },
-      { id: "pipeline-ideas", label: "Pipeline Ideas", Icon: Lightbulb },
+      { id: "news", label: "新闻源", Icon: Newspaper },
+      { id: "keyword-research", label: "关键词研究", Icon: Search },
+      { id: "pipelines", label: "管线", Icon: Zap },
+      { id: "pipeline-ideas", label: "管线创意", Icon: Lightbulb },
       { id: "sige", label: "SIGE", Icon: Swords },
-      { id: "sige-ideas", label: "SIGE Ideas", Icon: Sparkles },
-      { id: "memory", label: "Memory", Icon: Brain },
+      { id: "sige-ideas", label: "SIGE 创意", Icon: Sparkles },
+      { id: "memory", label: "记忆", Icon: Brain },
     ],
   },
   {
-    title: "System",
+    title: "kan推送配置",
+    collapsible: false,
+    items: [
+      { id: "kan-push", label: "kan推送配置", Icon: Send },
+    ],
+  },
+  {
+    title: "系统",
     collapsible: true,
     items: [
-      { id: "cron", label: "Cron", Icon: Clock },
-      { id: "processes", label: "Processes", Icon: Server },
-      { id: "system", label: "Metrics", Icon: Activity },
-      { id: "logs", label: "Logs", Icon: FileText },
-      { id: "settings", label: "Settings", Icon: Settings },
+      { id: "cron", label: "定时任务", Icon: Clock },
+      { id: "processes", label: "进程", Icon: Server },
+      { id: "system", label: "指标", Icon: Activity },
+      { id: "logs", label: "日志", Icon: FileText },
+      { id: "settings", label: "设置", Icon: Settings },
     ],
   },
 ];

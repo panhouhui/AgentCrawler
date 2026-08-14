@@ -48,11 +48,11 @@ export default function SystemMetrics() {
       <div className="flex flex-col items-center justify-center h-[60vh] gap-5 text-center">
         <AlertCircle size={52} color={C.red} />
         <h2 className="text-xl font-bold text-strong m-0">
-          Unable to load metrics
+          指标加载失败
         </h2>
         <p className="text-faint m-0 text-sm">{error}</p>
         <Button variant="secondary" onClick={refetch}>
-          Retry
+          重试
         </Button>
       </div>
     );
@@ -104,12 +104,12 @@ export default function SystemMetrics() {
       disk.length > 0 ? Math.max(...disk.map((d) => d.percentage)) : 0;
 
     if (cpu.usage > 90 || memory.percentage > 90 || maxDiskPct > 95) {
-      return { status: "Critical", color: C.red, icon: AlertCircle };
+      return { status: "严重", color: C.red, icon: AlertCircle };
     }
     if (cpu.usage > 70 || memory.percentage > 70 || maxDiskPct > 85) {
-      return { status: "Warning", color: C.amber, icon: AlertCircle };
+      return { status: "警告", color: C.amber, icon: AlertCircle };
     }
-    return { status: "Healthy", color: C.teal, icon: CheckCircle };
+    return { status: "健康", color: C.teal, icon: CheckCircle };
   };
 
   const health = getHealthStatus();
@@ -135,15 +135,15 @@ export default function SystemMetrics() {
           style={{ backgroundColor: health.color }}
         />
       </span>
-      System {health.status}
+      系统{health.status}
     </div>
   );
 
   return (
     <div className="max-w-[1600px] mx-auto">
       <PageHeader
-        title="System Metrics"
-        subtitle="Real-time monitoring and performance analysis"
+        title="系统指标"
+        subtitle="实时监控和性能分析"
         actions={healthBadge}
       />
 
@@ -152,15 +152,15 @@ export default function SystemMetrics() {
           {/* Metric Cards */}
           <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4 mb-6 max-md:grid-cols-1">
             <MetricCard
-              title="CPU Usage"
+              title="CPU 使用率"
               value={`${currentMetrics.cpu.usage.toFixed(1)}%`}
-              detail={`Load: ${currentMetrics.cpu.loadAvg.map((l) => l.toFixed(2)).join(" / ")}`}
+              detail={`负载：${currentMetrics.cpu.loadAvg.map((l) => l.toFixed(2)).join(" / ")}`}
               icon={Cpu}
               color={C.teal}
               trend={cpuTrend}
             />
             <MetricCard
-              title="Memory Usage"
+              title="内存使用率"
               value={`${currentMetrics.memory.percentage.toFixed(1)}%`}
               detail={`${(currentMetrics.memory.used / 1024 / 1024 / 1024).toFixed(1)} / ${(currentMetrics.memory.total / 1024 / 1024 / 1024).toFixed(1)} GB`}
               icon={HardDrive}
@@ -168,22 +168,22 @@ export default function SystemMetrics() {
               trend={memoryTrend}
             />
             <MetricCard
-              title="Active Processes"
+              title="活跃进程"
               value={processData.length.toString()}
-              detail="High resource usage"
+              detail="高资源占用"
               icon={Activity}
               color={C.deepPurple}
             />
             <MetricCard
-              title="System Load"
+              title="系统负载"
               value={currentMetrics.cpu.loadAvg[0].toFixed(2)}
-              detail="1 minute average"
+              detail="1 分钟平均值"
               icon={Zap}
               color={C.amber}
             />
             {currentMetrics.disk.length > 0 && (
               <MetricCard
-                title="Disk Usage"
+                title="磁盘使用率"
                 value={`${currentMetrics.disk[0]!.percentage.toFixed(0)}%`}
                 detail={`${formatBytes(currentMetrics.disk[0]!.used)} / ${formatBytes(currentMetrics.disk[0]!.total)}`}
                 icon={Database}
@@ -195,7 +195,7 @@ export default function SystemMetrics() {
           {/* Performance Timeline + Side Charts */}
           <div className="grid grid-cols-[2fr_1fr] gap-4 mb-5 max-lg:grid-cols-1">
             <ChartSection
-              title="Performance Timeline"
+              title="性能趋势"
               right={
                 <div className="flex gap-5">
                   <span className="flex items-center gap-2 text-xs text-muted font-mono">
@@ -210,7 +210,7 @@ export default function SystemMetrics() {
                       className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: C.purple }}
                     />
-                    Memory
+                    内存
                   </span>
                 </div>
               }
@@ -219,10 +219,10 @@ export default function SystemMetrics() {
             </ChartSection>
 
             <div className="flex flex-col gap-4 max-lg:flex-row max-md:flex-col">
-              <ChartSection title="CPU Gauge">
+              <ChartSection title="CPU 仪表">
                 <GaugeChart value={currentMetrics.cpu.usage} />
               </ChartSection>
-              <ChartSection title="Memory Split">
+              <ChartSection title="内存分布">
                 <MemoryPieChart usedGB={usedGB} availableGB={availableGB} />
                 <div className="flex justify-center gap-5 mt-2">
                   <span className="flex items-center gap-1.5 text-[11px] text-muted font-mono">
@@ -230,14 +230,14 @@ export default function SystemMetrics() {
                       className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: C.purple }}
                     />
-                    Used: {usedGB.toFixed(1)} GB
+                    已用：{usedGB.toFixed(1)} GB
                   </span>
                   <span className="flex items-center gap-1.5 text-[11px] text-muted font-mono">
                     <span
                       className="w-2 h-2 rounded-full"
                       style={{ backgroundColor: C.teal }}
                     />
-                    Free: {availableGB.toFixed(1)} GB
+                    可用：{availableGB.toFixed(1)} GB
                   </span>
                 </div>
               </ChartSection>
@@ -246,7 +246,7 @@ export default function SystemMetrics() {
 
           {/* Disk Usage */}
           {currentMetrics.disk.length > 0 && (
-            <ChartSection title="Disk Usage" className="mb-5">
+            <ChartSection title="磁盘使用率" className="mb-5">
               <div className="flex flex-col gap-3">
                 {currentMetrics.disk.map((d: DiskInfo) => {
                   const barColor =
@@ -281,9 +281,9 @@ export default function SystemMetrics() {
                           />
                         </div>
                         <div className="flex justify-between font-mono text-xs text-faint max-md:flex-wrap max-md:gap-1">
-                          <span>{formatBytes(d.used)} used</span>
-                          <span>{formatBytes(d.available)} free</span>
-                          <span>{formatBytes(d.total)} total</span>
+                          <span>{formatBytes(d.used)} 已用</span>
+                          <span>{formatBytes(d.available)} 可用</span>
+                          <span>{formatBytes(d.total)} 总量</span>
                         </div>
                       </div>
                       <div
@@ -305,7 +305,7 @@ export default function SystemMetrics() {
           {/* Load Average + Processes */}
           <div className="grid grid-cols-2 gap-4 mb-5 max-md:grid-cols-1">
             <ChartSection
-              title="System Load Average"
+              title="系统平均负载"
               right={
                 <div className="flex gap-4">
                   <span className="flex items-center gap-1.5 text-[11px] text-muted font-mono">
@@ -335,7 +335,7 @@ export default function SystemMetrics() {
               <LoadChart data={chartData} />
             </ChartSection>
 
-            <ChartSection title="Top Processes">
+            <ChartSection title="高占用进程">
               <div className="flex flex-col gap-2.5">
                 {processData.map((process, index) => {
                   const rankColors = [C.teal, C.purple, C.amber];

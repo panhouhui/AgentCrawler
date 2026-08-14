@@ -15,7 +15,7 @@ export function DeleteDialog({
   loading?: boolean;
 }) {
   return (
-    <Modal open onClose={onCancel} title="Delete Agent">
+    <Modal open onClose={onCancel} title="删除智能体">
       <div className="text-center">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-danger-subtle text-danger mb-5">
           <svg
@@ -37,16 +37,15 @@ export function DeleteDialog({
           </svg>
         </div>
         <p className="text-muted text-sm leading-relaxed m-0 mb-6">
-          Are you sure you want to delete{" "}
-          <strong className="text-strong">{agentName}</strong>? This action
-          cannot be undone.
+          确定要删除{" "}
+          <strong className="text-strong">{agentName}</strong> 吗？此操作无法撤销。
         </p>
         <div className="flex justify-center gap-3">
           <Button variant="secondary" size="sm" onClick={onCancel} disabled={loading}>
-            Cancel
+            取消
           </Button>
           <Button variant="danger" size="sm" onClick={onConfirm} loading={loading}>
-            Delete
+            删除
           </Button>
         </div>
       </div>

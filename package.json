@@ -1,5 +1,5 @@
 {
-  "name": "opencrow",
+  "name": "agenthub",
   "version": "1.0.0",
   "description": "Self-hosted multi-agent AI platform with 90+ tools, vector memory, and real-time market streaming",
   "module": "src/index.ts",
@@ -24,6 +24,7 @@
     "bun": ">=1.1.0"
   },
   "bin": {
+    "agenthub": "bin/opencrow",
     "opencrow": "bin/opencrow"
   },
   "scripts": {
@@ -31,6 +32,7 @@
     "setup:browser": "bunx playwright install chromium",
     "start": "bun run src/index.ts",
     "start:web": "bun run src/web-index.ts",
+    "preview:web": "bun run tw:build && bun run scripts/web-preview.ts",
     "dev": "bun run --watch src/index.ts",
     "dev:web": "bun run --watch src/web-index.ts",
     "typecheck": "tsc --noEmit",

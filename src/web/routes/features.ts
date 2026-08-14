@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { createLogger } from "../../logger";
 import { getOverride, setOverride } from "../../store/config-overrides";
-import { loadConfigWithOverrides } from "../../config/loader";
+import { loadConfig } from "../../config/loader";
 import { DEFAULT_CHUNK_PROFILES } from "../../memory/chunk-profiles";
 import type { MemorySourceKind } from "../../memory/types";
 import { AVAILABLE_SCRAPERS } from "../../sources/available";
@@ -71,7 +71,7 @@ export function createFeaturesRoutes(): Hono {
 
   app.get("/features", async (c) => {
     try {
-      const config = await loadConfigWithOverrides();
+      const config = loadConfig();
 
       const enabledScrapers = (await getOverride(
         NAMESPACE,
@@ -223,7 +223,7 @@ export function createFeaturesRoutes(): Hono {
   app.get("/features/embeddings", async (c) => {
     try {
       const override = await getOverride(NAMESPACE, "embeddings");
-      const config = await loadConfigWithOverrides();
+      const config = loadConfig();
       const embeddingsConfig = embeddingsConfigSchema.parse(
         override ?? config.embeddings ?? {},
       );

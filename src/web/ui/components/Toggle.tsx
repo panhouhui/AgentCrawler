@@ -19,7 +19,7 @@ export function Toggle({ checked, onChange, label, disabled }: ToggleProps) {
       disabled={disabled}
       type="button"
       aria-pressed={checked}
-      aria-label={label ?? (checked ? "On" : "Off")}
+      aria-label={label ?? (checked ? "开启" : "关闭")}
     >
       <span
         className={cn(
@@ -27,7 +27,7 @@ export function Toggle({ checked, onChange, label, disabled }: ToggleProps) {
           checked ? "translate-x-4 bg-white" : "translate-x-0 bg-muted",
         )}
       />
-      {checked ? "On" : "Off"}
+      {checked ? "开启" : "关闭"}
     </button>
   );
 

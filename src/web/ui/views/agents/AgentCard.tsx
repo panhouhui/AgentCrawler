@@ -21,8 +21,8 @@ export function AgentCard({
 }) {
   const toolsLabel =
     agent.toolFilter.mode === "all"
-      ? "All tools"
-      : `${agent.toolFilter.tools.length} ${agent.toolFilter.mode === "allowlist" ? "allowed" : "blocked"}`;
+      ? "全部工具"
+      : `${agent.toolFilter.tools.length} ${agent.toolFilter.mode === "allowlist" ? "个已允许" : "个已屏蔽"}`;
 
   return (
     <div
@@ -42,7 +42,7 @@ export function AgentCard({
             className="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent border-none p-0 cursor-pointer"
             onClick={onSelect}
             aria-pressed={isSelected}
-            aria-label={`Select agent ${agent.name}`}
+            aria-label={`选择智能体 ${agent.name}`}
           >
             <div className="w-9 h-9 rounded-lg bg-bg-3 border border-border flex items-center justify-center font-mono font-semibold text-xs text-muted shrink-0 uppercase tracking-wide">
               {getInitials(agent.name)}
@@ -54,17 +54,17 @@ export function AgentCard({
                 </span>
                 {agent.isDefault && (
                   <span className="text-[0.65rem] font-semibold text-accent bg-accent-subtle px-2 py-0.5 rounded uppercase tracking-wide shrink-0">
-                    default
+                    默认
                   </span>
                 )}
                 {agent.source === "db" && (
                   <span className="text-[0.65rem] font-semibold text-success bg-success-subtle px-2 py-0.5 rounded uppercase tracking-wide shrink-0">
-                    custom
+                    自定义
                   </span>
                 )}
                 {agent.source === "file+db" && (
                   <span className="text-[0.65rem] font-semibold text-warning bg-warning-subtle px-2 py-0.5 rounded uppercase tracking-wide shrink-0">
-                    modified
+                    已修改
                   </span>
                 )}
                 {agent.source === "ecc" && (
@@ -86,7 +86,7 @@ export function AgentCard({
                 type="button"
                 className="w-8 h-8 border border-border rounded-md bg-bg text-faint cursor-pointer flex items-center justify-center transition-colors hover:bg-accent-subtle hover:text-accent hover:border-accent/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={onSetDefault}
-                aria-label="Set as default"
+                aria-label="设为默认"
                 disabled={isPending}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -98,7 +98,7 @@ export function AgentCard({
               type="button"
               className="w-8 h-8 border border-border rounded-md bg-bg text-faint cursor-pointer flex items-center justify-center transition-colors hover:bg-bg-2 hover:text-foreground hover:border-border-2"
               onClick={onEdit}
-              aria-label="Edit agent"
+              aria-label="编辑智能体"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -110,7 +110,7 @@ export function AgentCard({
                 type="button"
                 className="w-8 h-8 border border-border rounded-md bg-bg text-faint cursor-pointer flex items-center justify-center transition-colors hover:bg-danger-subtle hover:text-danger hover:border-danger/30"
                 onClick={onDelete}
-                aria-label="Delete agent"
+                aria-label="删除智能体"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 6h18" />
@@ -140,6 +140,8 @@ export function AgentCard({
                   ? "bg-success"
                   : agent.provider === "alibaba"
                     ? "bg-orange-400"
+                    : agent.provider === "minimax"
+                      ? "bg-pink-400"
                     : "bg-accent",
               )}
             />
@@ -147,7 +149,7 @@ export function AgentCard({
           </span>
           <span className="font-mono pt-2.5">{shortModel(agent.model)}</span>
           {agent.telegramBotToken && (
-            <span className="pt-2.5">Bot</span>
+            <span className="pt-2.5">机器人</span>
           )}
           <span className="ml-auto font-mono pt-2.5">{toolsLabel}</span>
         </div>

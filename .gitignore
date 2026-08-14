@@ -6,6 +6,7 @@ out
 dist
 *.tgz
 src/web/ui/tailwind-out.css
+.preview/
 
 # code coverage
 coverage
@@ -14,6 +15,7 @@ coverage
 # logs
 logs
 _.log
+*.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # dotenv environment variable files
@@ -27,6 +29,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # caches
 .eslintcache
 .cache
+.tmp/
+.runtime/
+tmp/
 *.tsbuildinfo
 
 # IDEs
@@ -51,6 +56,21 @@ data/
 !scripts/data/
 !scripts/data/**
 src/news/scraper/.venv/
+
+# local secrets and external crawler/model environment files
+env/
+Crawler/
+Crawler_env/
+model_env/
+*_env
+*.cookie
+*.cookies
+cookies.json
+secrets.json
+token.json
+tokens.json
+session.json
+sessions/
 
 # Playwright MCP
 .playwright-mcp/

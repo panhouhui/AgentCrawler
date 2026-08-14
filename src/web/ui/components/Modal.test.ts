@@ -45,7 +45,7 @@ test("Modal renders close button when title is present", () => {
   const html = renderHTML(
     React.createElement(Modal, { open: true, onClose: () => {}, title: "Edit", children: null }, "Body"),
   );
-  expect(html).toContain("aria-label=\"Close\"");
+  expect(html).toContain("aria-label=\"关闭\"");
 });
 
 test("Modal calls onClose when backdrop clicked", () => {
@@ -75,7 +75,7 @@ test("Modal close button calls onClose", () => {
   const { container, unmount } = mount(
     React.createElement(Modal, { open: true, onClose: () => { closed = true; }, title: "Test", children: null }, "Body"),
   );
-  const closeBtn = container.querySelector("[aria-label='Close']")!;
+  const closeBtn = container.querySelector("[aria-label='关闭']")!;
   click(closeBtn);
   expect(closed).toBe(true);
   unmount();

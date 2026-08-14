@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { realpathSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
-import { join } from "path";
+import { join, resolve } from "path";
 import { tmpdir } from "os";
-import { resolveAllowedDirs, expandHome, isPathAllowed, isPathAllowedSync } from "./path-utils";
+import { resolveAllowedDirs, expandHome, getHome, isPathAllowed, isPathAllowedSync } from "./path-utils";
 
 describe("expandHome", () => {
   it("should expand ~ to home directory", () => {
-    const home = process.env.HOME || "/home/user";
+    const home = getHome();
     const result = expandHome("~/test");
     expect(result).toBe(`${home}/test`);
   });
 
   it("should expand ~ alone to home directory", () => {
-    const home = process.env.HOME || "/home/user";
+    const home = getHome();
     const result = expandHome("~");
     expect(result).toBe(home);
   });
@@ -33,7 +33,7 @@ describe("expandHome", () => {
   });
 
   it("should expand $HOME syntax", () => {
-    const home = process.env.HOME || "/home/user";
+    const home = getHome();
     const result = expandHome("$HOME/test");
     expect(result).toBe(`${home}/test`);
   });
@@ -43,13 +43,13 @@ describe("resolveAllowedDirs", () => {
   it("should resolve relative paths to absolute", () => {
     const cwd = process.cwd();
     const result = resolveAllowedDirs(["./test"]);
-    expect(result[0]).toBe(`${cwd}/test`);
+    expect(result[0]).toBe(resolve(cwd, "test"));
   });
 
   it("should expand $HOME in paths", () => {
-    const home = process.env.HOME || "/home/user";
+    const home = getHome();
     const result = resolveAllowedDirs(["$HOME/test"]);
-    expect(result[0]).toBe(`${home}/test`);
+    expect(result[0]).toBe(resolve(home, "test"));
   });
 
   it("should resolve existing paths through symlinks", () => {

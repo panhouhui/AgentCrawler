@@ -632,7 +632,7 @@ export default function OpportunitiesTab() {
           <SearchBar value={search} onChange={setSearch} placeholder="Search all keywords…" />
         </div>
         <span className="text-xs text-faint whitespace-nowrap">
-          Showing {rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} of{" "}
+          显示 {rangeStart.toLocaleString()}–{rangeEnd.toLocaleString()} /{" "}
           {total.toLocaleString()}
         </span>
       </div>
@@ -783,12 +783,12 @@ export default function OpportunitiesTab() {
 
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-faint">Rows per page</span>
+          <span className="text-xs text-faint">每页行数</span>
           <select
             className={selectClass}
             value={pageSize}
             onChange={(e) => setPageSize(Number(e.target.value))}
-            aria-label="Rows per page"
+            aria-label="每页行数"
           >
             {PAGE_SIZE_OPTIONS.map((size) => (
               <option key={size} value={size}>
@@ -800,14 +800,14 @@ export default function OpportunitiesTab() {
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-faint whitespace-nowrap">
-            Page {(page + 1).toLocaleString()} of {totalPages.toLocaleString()}
+            第 {(page + 1).toLocaleString()} / {totalPages.toLocaleString()} 页
           </span>
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={goToPrevPage} disabled={!canGoPrev}>
-              Prev
+              上一页
             </Button>
             <Button variant="secondary" size="sm" onClick={goToNextPage} disabled={!canGoNext}>
-              Next
+              下一页
             </Button>
           </div>
         </div>

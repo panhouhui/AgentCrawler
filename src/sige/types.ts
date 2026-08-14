@@ -328,7 +328,13 @@ export interface SigeSessionConfig {
   /** Blending coefficient for fused scoring (0 = pure expert, 1 = pure social) */
   readonly alpha: number;
   readonly incentiveWeights: IncentiveWeights;
-  readonly provider: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode";
+  readonly provider:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode";
   readonly model: string;
   readonly agentModel: string;
 }

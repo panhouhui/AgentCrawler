@@ -11,7 +11,7 @@ test("SearchBar renders input element", () => {
 
 test("SearchBar uses default placeholder", () => {
   const html = renderHTML(React.createElement(SearchBar, { value: "", onChange: () => {} }));
-  expect(html).toContain('placeholder="Search..."');
+  expect(html).toContain('placeholder="搜索..."');
 });
 
 test("SearchBar uses custom placeholder", () => {
@@ -21,12 +21,12 @@ test("SearchBar uses custom placeholder", () => {
 
 test("SearchBar shows clear button when value is non-empty", () => {
   const html = renderHTML(React.createElement(SearchBar, { value: "test", onChange: () => {} }));
-  expect(html).toContain('aria-label="Clear search"');
+  expect(html).toContain('aria-label="清空搜索"');
 });
 
 test("SearchBar hides clear button when value is empty", () => {
   const html = renderHTML(React.createElement(SearchBar, { value: "", onChange: () => {} }));
-  expect(html).not.toContain('aria-label="Clear search"');
+  expect(html).not.toContain('aria-label="清空搜索"');
 });
 
 test("SearchBar clear button calls onChange with empty string", () => {
@@ -34,7 +34,7 @@ test("SearchBar clear button calls onChange with empty string", () => {
   const { container, unmount } = mount(
     React.createElement(SearchBar, { value: "test", onChange: (v: string) => { val = v; } }),
   );
-  const clearBtn = container.querySelector("[aria-label='Clear search']")!;
+  const clearBtn = container.querySelector("[aria-label='清空搜索']")!;
   click(clearBtn);
   expect(val).toBe("");
   unmount();

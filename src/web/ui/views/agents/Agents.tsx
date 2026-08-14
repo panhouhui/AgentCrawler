@@ -27,11 +27,12 @@ import { useToast } from "../../components/Toast";
 
 /* ───── Constants ───── */
 const PROVIDER_TABS = [
-  { id: "all", label: "All" },
+  { id: "all", label: "全部" },
   { id: "agent-sdk", label: "Agent SDK" },
   { id: "anthropic", label: "Anthropic" },
   { id: "openrouter", label: "OpenRouter" },
-  { id: "alibaba", label: "Alibaba" },
+  { id: "alibaba", label: "阿里云" },
+  { id: "minimax", label: "MiniMax" },
   { id: "opencode", label: "OpenCode Zen" },
 ] as const;
 
@@ -65,10 +66,10 @@ export default function Agents() {
         setAgents(res.data);
         if (res.configHash) setConfigHash(res.configHash);
       } else {
-        setError("Failed to load agents");
+        setError("智能体加载失败");
       }
     } catch {
-      setError("Failed to load agents");
+      setError("智能体加载失败");
     } finally {
       setLoading(false);
     }
@@ -92,7 +93,7 @@ export default function Agents() {
       if (apiErr.status === 409) {
         await loadAgents();
       } else {
-        toast.error("Failed to delete agent");
+        toast.error("删除智能体失败");
       }
       setDeletingAgent(null);
     } finally {
@@ -106,14 +107,14 @@ export default function Agents() {
     try {
       const res = (await updateAgent(agentId, { default: true })) as MutationResponse;
       if (res.configHash) setConfigHash(res.configHash);
-      toast.success("Default agent updated");
+      toast.success("默认智能体已更新");
       await loadAgents();
     } catch (err) {
       const apiErr = err as { status?: number };
       if (apiErr.status === 409) {
         await loadAgents();
       } else {
-        toast.error("Failed to set default agent");
+        toast.error("设置默认智能体失败");
       }
     } finally {
       setPendingId(null);
@@ -130,7 +131,7 @@ export default function Agents() {
         if (res.configHash) setConfigHash(res.configHash);
       }
     } catch {
-      toast.error("Failed to load agent details");
+      toast.error("智能体详情加载失败");
     }
   }
 
@@ -152,6 +153,7 @@ export default function Agents() {
     anthropic: agents.filter((a) => a.provider === "anthropic").length,
     openrouter: agents.filter((a) => a.provider === "openrouter").length,
     alibaba: agents.filter((a) => a.provider === "alibaba").length,
+    minimax: agents.filter((a) => a.provider === "minimax").length,
     opencode: agents.filter((a) => a.provider === "opencode").length,
   };
 
@@ -161,7 +163,7 @@ export default function Agents() {
 
   /* ───── Loading ───── */
   if (loading) {
-    return <LoadingState message="Loading agents..." />;
+    return <LoadingState message="正在加载智能体..." />;
   }
 
   /* ───── Error ───── */
@@ -170,7 +172,7 @@ export default function Agents() {
       <div className="flex flex-col items-center gap-4 px-8 py-16 text-danger text-center">
         <p>{error}</p>
         <Button variant="primary" size="sm" onClick={loadAgents}>
-          Retry
+          重试
         </Button>
       </div>
     );
@@ -180,8 +182,8 @@ export default function Agents() {
     <div className="flex flex-col min-h-0">
       {/* --- Header --- */}
       <PageHeader
-        title="Agents"
-        subtitle="Manage your AI agents and their configurations"
+        title="智能体"
+        subtitle="查看和管理所有平台智能体、模型和工具配置"
         count={agents.length}
         actions={
           <Button onClick={() => setShowCreate(true)}>
@@ -196,7 +198,7 @@ export default function Agents() {
             >
               <path d="M7 1v12M1 7h12" />
             </svg>
-            New Agent
+            新建智能体
           </Button>
         }
       />
@@ -216,7 +218,7 @@ export default function Agents() {
           <SearchBar
             value={searchTerm}
             onChange={setSearchTerm}
-            placeholder="Search agents..."
+            placeholder="搜索智能体..."
           />
         </div>
       </div>
@@ -227,9 +229,9 @@ export default function Agents() {
       {/* --- Tool Template Model --- */}
       <div className="bg-bg-1 border border-border rounded-xl p-5 mb-6 transition-all duration-200 hover:border-border-hover">
         <div className="text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border">
-          Tool Template Model
+          工具模板模型
         </div>
-        <ModelRoutePicker processKey="agent-templates" label="Agent Templates" />
+        <ModelRoutePicker processKey="agent-templates" label="智能体模板" />
       </div>
 
       {/* --- Main content area --- */}
@@ -239,13 +241,13 @@ export default function Agents() {
           <EmptyState
             title={
               searchTerm || providerFilter !== "all"
-                ? "No agents match your filters"
-                : "No agents yet"
+                ? "没有匹配的智能体"
+                : "暂无智能体"
             }
             description={
               searchTerm || providerFilter !== "all"
-                ? "Try adjusting your search or filter criteria."
-                : "Create your first agent to get started."
+                ? "请调整搜索词或筛选条件。"
+                : "先创建第一个智能体。"
             }
           />
         ) : (

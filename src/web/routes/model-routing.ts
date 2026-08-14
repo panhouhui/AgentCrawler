@@ -1,7 +1,7 @@
 /**
  * API routes for per-process model-routing configuration.
  *
- * GET  /model-routing          — list all 8 process routes
+ * GET  /model-routing          — list process routes
  * PUT  /model-routing/:key     — update a single process route
  */
 

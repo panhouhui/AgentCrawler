@@ -13,7 +13,7 @@ interface WorkflowListProps {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString("zh-CN", {
       year: "numeric",
       month: "short",
       day: "numeric",
@@ -40,7 +40,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
     setError("");
     apiFetch<{ data: SavedWorkflow[] }>("/api/workflows")
       .then((res) => setWorkflows(res.data))
-      .catch(() => setError("Failed to load workflows"))
+      .catch(() => setError("工作流加载失败"))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -67,7 +67,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
       setWorkflows((prev) => prev.filter((w) => w.id !== wf.id));
       setPendingDelete(null);
     } catch {
-      setError("Failed to delete workflow");
+      setError("删除工作流失败");
     } finally {
       setDeleting(null);
     }
@@ -84,7 +84,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
         prev.map((w) => (w.id === wf.id ? res.data : w)),
       );
     } catch {
-      setError("Failed to update workflow");
+      setError("更新工作流失败");
     } finally {
       setToggling(null);
     }
@@ -98,7 +98,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
       });
       setWorkflows((prev) => [res.data, ...prev]);
     } catch {
-      setError("Failed to duplicate workflow");
+      setError("复制工作流失败");
     } finally {
       setDuplicating(null);
     }
@@ -106,7 +106,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
 
   return (
     <>
-    <Modal open={open} onClose={onClose} title="Saved Workflows">
+    <Modal open={open} onClose={onClose} title="已保存工作流">
       {error && (
         <div className="bg-danger-subtle border border-danger/20 rounded-lg px-4 py-3 text-danger text-sm mb-4">
           {error}
@@ -118,7 +118,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
       ) : workflows.length === 0 ? (
         <div className="text-center py-12 text-muted">
           <FolderOpen size={32} className="mx-auto mb-3 opacity-40" />
-          <p className="text-sm">No saved workflows yet.</p>
+          <p className="text-sm">暂无已保存工作流。</p>
         </div>
       ) : (
         <div className="flex flex-col gap-2">
@@ -149,13 +149,13 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
                 disabled={toggling === wf.id}
                 onClick={() => handleToggleEnabled(wf)}
                 className={`w-8 h-8 flex items-center justify-center rounded-md border transition-colors cursor-pointer bg-transparent shrink-0 disabled:opacity-50 text-xs font-bold ${wf.enabled ? "border-green-500/40 text-green-500 bg-green-500/10 hover:bg-green-500/20" : "border-border-2 text-faint hover:text-foreground hover:border-border-hover"}`}
-                aria-label={wf.enabled ? "Disable workflow" : "Enable workflow"}
-                title={wf.enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
+                aria-label={wf.enabled ? "停用工作流" : "启用工作流"}
+                title={wf.enabled ? "已启用，点击停用" : "已停用，点击启用"}
               >
                 {toggling === wf.id ? (
                   <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
                 ) : (
-                  <span>{wf.enabled ? "ON" : "OFF"}</span>
+                  <span>{wf.enabled ? "开" : "关"}</span>
                 )}
               </button>
               <button
@@ -163,7 +163,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
                 disabled={duplicating === wf.id}
                 onClick={() => handleDuplicate(wf)}
                 className="w-8 h-8 flex items-center justify-center rounded-md border border-transparent text-faint hover:text-accent hover:border-accent/30 hover:bg-accent/10 transition-colors cursor-pointer bg-transparent shrink-0 disabled:opacity-50"
-                aria-label="Duplicate workflow"
+                aria-label="复制工作流"
               >
                 {duplicating === wf.id ? (
                   <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -176,7 +176,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
                 disabled={deleting === wf.id}
                 onClick={() => setPendingDelete(wf)}
                 className="w-8 h-8 flex items-center justify-center rounded-md border border-transparent text-faint hover:text-danger hover:border-danger/30 hover:bg-danger-subtle transition-colors cursor-pointer bg-transparent shrink-0 disabled:opacity-50"
-                aria-label="Delete workflow"
+                aria-label="删除工作流"
               >
                 {deleting === wf.id ? (
                   <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
@@ -193,14 +193,14 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
     <Modal
       open={pendingDelete !== null}
       onClose={() => setPendingDelete(null)}
-      title="Delete Workflow"
+      title="删除工作流"
     >
       <p className="text-sm text-muted mb-6">
-        Delete <span className="font-semibold text-strong">{pendingDelete?.name}</span>? This cannot be undone.
+        确定删除 <span className="font-semibold text-strong">{pendingDelete?.name}</span> 吗？此操作无法撤销。
       </p>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={() => setPendingDelete(null)}>
-          Cancel
+          取消
         </Button>
         <Button
           variant="danger"
@@ -208,7 +208,7 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
           loading={deleting === pendingDelete?.id}
           onClick={() => { if (pendingDelete) void handleDelete(pendingDelete); }}
         >
-          Delete
+          删除
         </Button>
       </div>
     </Modal>

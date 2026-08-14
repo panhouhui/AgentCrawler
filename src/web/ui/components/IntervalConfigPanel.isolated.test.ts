@@ -45,11 +45,11 @@ beforeEach(() => {
 
 // ─── Rendering ─────────────────────────────────────────────────────────────────
 
-test("IntervalConfigPanel renders a toggle button with 'Scraper Config' text", () => {
+test("IntervalConfigPanel renders a toggle button with Chinese config text", () => {
   const html = renderHTML(
     React.createElement(IntervalConfigPanel, { scraperId: "test", fields: FIELDS }),
   );
-  expect(html).toContain("Scraper Config");
+  expect(html).toContain("爬虫配置");
 });
 
 test("IntervalConfigPanel does NOT show fields before toggle is clicked", () => {
@@ -62,7 +62,7 @@ test("IntervalConfigPanel does NOT show fields before toggle is clicked", () => 
 
 // ─── Toggle open ──────────────────────────────────────────────────────────────
 
-test("IntervalConfigPanel shows 'Loading...' immediately after opening", async () => {
+test("IntervalConfigPanel shows Chinese loading text immediately after opening", async () => {
   // Make apiFetch hang indefinitely so we can inspect the loading state
   let resolve!: () => void;
   const hanging = new Promise<{ data: { intervalMs: number; maxItems: number } }>((res) => {
@@ -79,7 +79,7 @@ test("IntervalConfigPanel shows 'Loading...' immediately after opening", async (
     container.querySelector("button")!.click();
   });
 
-  expect(container.textContent).toContain("Loading");
+  expect(container.textContent).toContain("加载中");
 
   // Resolve to clean up pending promise
   resolve();
@@ -162,6 +162,6 @@ test("IntervalConfigPanel shows error toast when fetch fails", async () => {
     await Promise.resolve();
   });
 
-  expect(mockError).toHaveBeenCalledWith("Failed to load config.");
+  expect(mockError).toHaveBeenCalledWith("配置加载失败。");
   unmount();
 });

@@ -1,6 +1,15 @@
 import { useEffect, useRef } from "react";
 import type React from "react";
 import * as echarts from "echarts";
+import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+
+(echarts.use as (extensions: readonly unknown[]) => void)([
+  CanvasRenderer,
+  GridComponent,
+  LegendComponent,
+  TooltipComponent,
+]);
 
 /**
  * Mounts an ECharts instance into `ref`, keeps it sized to its container via a

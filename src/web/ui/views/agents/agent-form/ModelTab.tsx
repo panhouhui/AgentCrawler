@@ -6,6 +6,7 @@ import {
   ANTHROPIC_MODELS,
   AGENT_SDK_MODELS,
   ALIBABA_MODEL_GROUPS,
+  MINIMAX_MODELS,
   OPENCODE_MODELS,
 } from "../../../lib/model-lists";
 
@@ -19,12 +20,12 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
       {/* Section: Model */}
       <fieldset className="border-none p-0 m-0">
         <legend className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border w-full flex items-center justify-between">
-          Model Configuration
+          模型配置
         </legend>
         <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
           <div className="mb-5">
             <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-              Provider
+              服务商
             </label>
             <Controller
               control={control}
@@ -32,9 +33,10 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
               render={({ field }) => (
                 <select className={SELECT_CLS} {...field}>
                   <option value="agent-sdk">Agent SDK</option>
-                  <option value="anthropic">Anthropic (OAuth)</option>
+                  <option value="anthropic">Anthropic（OAuth）</option>
                   <option value="openrouter">OpenRouter</option>
-                  <option value="alibaba">Alibaba ModelStudio</option>
+                  <option value="alibaba">阿里云 ModelStudio</option>
+                  <option value="minimax">MiniMax</option>
                   <option value="opencode">OpenCode Zen</option>
                 </select>
               )}
@@ -42,7 +44,7 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
           </div>
           <div className="mb-5">
             <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-              Model
+              模型
             </label>
             {provider === "agent-sdk" ? (
               <select className={SELECT_CLS} {...register("model")}>
@@ -80,17 +82,25 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
                   </option>
                 ))}
               </select>
+            ) : provider === "minimax" ? (
+              <select className={SELECT_CLS} {...register("model")}>
+                {MINIMAX_MODELS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
             ) : (
               <Input
                 type="text"
-                placeholder="e.g. stepfun/step-3.5-flash:free"
+                placeholder="例如：stepfun/step-3.5-flash:free"
                 {...register("model")}
               />
             )}
           </div>
           <div className="mb-5">
             <Input
-              label="Max Iterations"
+              label="最大迭代次数"
               type="number"
               min={1}
               max={500}
@@ -99,7 +109,7 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
           </div>
           <div className="mb-5">
             <Input
-              label="Max Input Length (0 = no limit)"
+              label="最大输入长度（0 表示不限）"
               type="number"
               min={0}
               placeholder="0"
@@ -116,21 +126,21 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
                     className="w-4 h-4 accent-accent cursor-pointer"
                     {...register("reasoning")}
                   />
-                  <span className="select-none">Extended Thinking</span>
+                  <span className="select-none">扩展思考</span>
                 </label>
               </div>
               <div className="mb-5">
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Thinking Mode
+                  思考模式
                 </label>
                 <Controller
                   control={control}
                   name="thinkingMode"
                   render={({ field }) => (
                     <select className={SELECT_CLS} {...field}>
-                      <option value="adaptive">Adaptive (model decides)</option>
-                      <option value="enabled">Fixed budget</option>
-                      <option value="disabled">Disabled</option>
+                      <option value="adaptive">自适应（由模型决定）</option>
+                      <option value="enabled">固定预算</option>
+                      <option value="disabled">禁用</option>
                     </select>
                   )}
                 />
@@ -138,7 +148,7 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
               {thinkingMode === "enabled" && (
                 <div className="mb-5">
                   <Input
-                    label="Thinking Budget (tokens)"
+                    label="思考预算（tokens）"
                     type="number"
                     min={1024}
                     max={128000}
@@ -149,18 +159,18 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
               )}
               <div className="mb-5">
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Effort Level
+                  推理强度
                 </label>
                 <Controller
                   control={control}
                   name="effort"
                   render={({ field }) => (
                     <select className={SELECT_CLS} {...field}>
-                      <option value="low">Low (fast, minimal thinking)</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High (deep reasoning)</option>
+                      <option value="low">低（快速，少量思考）</option>
+                      <option value="medium">中</option>
+                      <option value="high">高（深度推理）</option>
                       <option value="max" disabled={!isOpus}>
-                        Max (Opus only)
+                        最大（仅 Opus）
                       </option>
                     </select>
                   )}
@@ -173,7 +183,7 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
                     className="w-4 h-4 accent-accent cursor-pointer"
                     {...register("extendedContext")}
                   />
-                  <span className="select-none">1M Context Window (beta)</span>
+                  <span className="select-none">1M 上下文窗口（测试版）</span>
                 </label>
               </div>
             </>
@@ -185,7 +195,7 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
                 className="w-4 h-4 accent-accent cursor-pointer"
                 {...register("stateless")}
               />
-              <span className="select-none">Stateless</span>
+              <span className="select-none">无状态</span>
             </label>
           </div>
         </div>
@@ -194,12 +204,12 @@ export function ModelTab({ form }: { form: UseAgentFormReturn }) {
       {/* Section: System Prompt */}
       <fieldset className="border-none p-0 m-0">
         <legend className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-4 pb-2 border-b border-border w-full flex items-center justify-between">
-          System Prompt
+          系统提示词
         </legend>
         <textarea
           rows={6}
           className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-foreground font-mono text-sm leading-relaxed outline-none transition-colors duration-150 resize-y min-h-[120px] focus:border-accent"
-          placeholder="Uses global default if empty"
+          placeholder="留空则使用全局默认值"
           {...register("systemPrompt")}
         />
       </fieldset>

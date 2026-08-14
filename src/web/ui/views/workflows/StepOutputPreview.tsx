@@ -45,13 +45,13 @@ export function StepOutputPreview({ step, nodeId, onClose }: StepOutputPreviewPr
           <div className="flex items-center gap-2">
             {isFailed && <AlertCircle size={14} className="text-danger shrink-0" />}
             <span className="text-sm font-semibold text-strong truncate">
-              {isFailed ? "Step Failed" : "Step Output"}
+              {isFailed ? "步骤失败" : "步骤输出"}
             </span>
             <span className="text-xs text-muted font-mono truncate max-w-[200px]">{nodeId}</span>
           </div>
           <button
             type="button"
-            aria-label="Close step preview"
+            aria-label="关闭步骤预览"
             onClick={onClose}
             className={cn(
               "w-6 h-6 flex items-center justify-center rounded text-muted",
@@ -66,14 +66,14 @@ export function StepOutputPreview({ step, nodeId, onClose }: StepOutputPreviewPr
         <div className="flex-1 overflow-y-auto p-4 min-h-0">
           {isFailed && step.error && (
             <div className="mb-3 p-3 rounded-lg bg-danger-subtle border border-danger/20">
-              <p className="text-xs text-danger font-medium mb-1">Error</p>
+              <p className="text-xs text-danger font-medium mb-1">错误</p>
               <p className="text-xs text-danger/80 font-mono break-words">{step.error}</p>
             </div>
           )}
 
           {!isFailed && (
             <div>
-              <p className="text-xs text-muted font-medium mb-2 uppercase tracking-wide">Output</p>
+              <p className="text-xs text-muted font-medium mb-2 uppercase tracking-wide">输出</p>
               <pre className="text-xs font-mono text-foreground bg-bg rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-words border border-border">
                 {formatOutput(step.output)}
               </pre>
@@ -82,7 +82,7 @@ export function StepOutputPreview({ step, nodeId, onClose }: StepOutputPreviewPr
 
           {isFailed && step.output !== undefined && step.output !== null && (
             <div className="mt-3">
-              <p className="text-xs text-muted font-medium mb-2 uppercase tracking-wide">Output (partial)</p>
+              <p className="text-xs text-muted font-medium mb-2 uppercase tracking-wide">部分输出</p>
               <pre className="text-xs font-mono text-foreground bg-bg rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-words border border-border">
                 {formatOutput(step.output)}
               </pre>

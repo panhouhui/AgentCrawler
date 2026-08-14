@@ -140,7 +140,7 @@ export function useAgentForm({ mode, initial, onDone }: UseAgentFormArgs) {
   /* ── Submit ── */
   async function onSubmit(values: AgentFormValues) {
     if (mode === "create" && !values.id.trim()) {
-      setApiError("ID is required");
+      setApiError("ID 不能为空");
       return;
     }
     setApiError("");
@@ -245,12 +245,12 @@ export function useAgentForm({ mode, initial, onDone }: UseAgentFormArgs) {
     } catch (err: unknown) {
       const apiErr = err as { status?: number; message?: string };
       if (apiErr.status === 409) {
-        setApiError("Config changed externally. Refreshing...");
+        setApiError("配置已被外部修改，正在刷新...");
         setTimeout(() => onDone(), 500);
         return;
       }
       const msg =
-        err instanceof Error ? err.message : (apiErr.message ?? `Failed to ${mode}`);
+        err instanceof Error ? err.message : (apiErr.message ?? "保存智能体失败");
       setApiError(msg);
     }
   }

@@ -76,13 +76,13 @@ interface AgentOption {
 /* ─── Form Schema ─── */
 
 const cronJobSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "名称必填"),
   scheduleKind: z.string(),
   at: z.string(),
   everyMs: z.string(),
   cronExpr: z.string(),
   tz: z.string(),
-  message: z.string().min(1, "Message is required"),
+  message: z.string().min(1, "任务内容必填"),
   agentId: z.string(),
   deleteAfterRun: z.boolean(),
   priority: z.string(),
@@ -93,23 +93,23 @@ type CronJobFormValues = z.input<typeof cronJobSchema>;
 /* ─── Helpers ─── */
 
 function formatSchedule(s: CronJob["schedule"]): string {
-  if (s.kind === "at") return `Once at ${s.at ?? "unknown"}`;
+  if (s.kind === "at") return `一次性：${s.at ?? "未知时间"}`;
   if (s.kind === "every") {
     const sec = Math.floor((s.everyMs ?? 0) / 1000);
-    if (sec < 60) return `${sec}s`;
+    if (sec < 60) return `每 ${sec} 秒`;
     const min = Math.floor(sec / 60);
-    if (min < 60) return `${min}m`;
+    if (min < 60) return `每 ${min} 分钟`;
     const hr = Math.floor(min / 60);
     const rem = min % 60;
-    return rem > 0 ? `${hr}h ${rem}m` : `${hr}h`;
+    return rem > 0 ? `每 ${hr} 小时 ${rem} 分钟` : `每 ${hr} 小时`;
   }
   if (s.kind === "cron") return `${s.expr ?? ""}${s.tz ? ` (${s.tz})` : ""}`;
-  return "Unknown";
+  return "未知";
 }
 
 function formatTs(ts: number | null): string {
   if (!ts) return "-";
-  return new Date(ts * 1000).toLocaleString("en-GB", {
+  return new Date(ts * 1000).toLocaleString("zh-CN", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
@@ -119,7 +119,7 @@ function formatTs(ts: number | null): string {
 }
 
 function formatProgressTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("en-GB", {
+  return new Date(ts).toLocaleTimeString("zh-CN", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
@@ -136,13 +136,28 @@ const PROGRESS_ICON: Record<string, string> = {
 };
 
 const PROGRESS_LABEL: Record<string, string> = {
-  thinking: "thought",
-  tool_start: "tool",
-  tool_done: "result",
-  iteration: "step",
-  subagent_start: "agent",
-  subagent_done: "done",
+  thinking: "思考",
+  tool_start: "工具",
+  tool_done: "结果",
+  iteration: "步骤",
+  subagent_start: "智能体",
+  subagent_done: "完成",
 };
+
+const RUN_STATUS_LABEL: Record<string, string> = {
+  ok: "成功",
+  error: "错误",
+  fail: "失败",
+  running: "运行中",
+  timeout: "超时",
+};
+
+function priorityLabel(priority: number): string {
+  if (priority <= 3) return "高";
+  if (priority <= 7) return "中";
+  if (priority <= 12) return "普通";
+  return "低";
+}
 
 const selectClass =
   "w-full px-4 py-2.5 bg-bg border border-border rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent";
@@ -207,14 +222,14 @@ function ProgressPanel({
         onClick={onToggle}
         className="cr-progress-toggle"
         aria-expanded={expanded}
-        aria-label={expanded ? "Collapse live progress" : "Expand live progress"}
+        aria-label={expanded ? "收起实时进度" : "展开实时进度"}
       >
         <span className="cr-progress-toggle-left">
           <span
             aria-hidden="true"
             className="w-3 h-3 border-2 border-faint border-t-accent rounded-full animate-spin inline-block"
           />
-          <span className="cr-progress-label">Live</span>
+          <span className="cr-progress-label">实时</span>
           <span className="cr-progress-count">{entries.length}</span>
         </span>
         {!expanded && latestEntry && (
@@ -231,7 +246,7 @@ function ProgressPanel({
       {expanded && (
         <div className="cr-progress-body">
           {entries.length === 0 ? (
-            <div className="cr-progress-empty">Waiting for output...</div>
+            <div className="cr-progress-empty">等待输出...</div>
           ) : (
             entries.map((entry, i) => (
               <div key={i} className="cr-progress-entry">
@@ -282,7 +297,7 @@ function RunRow({ run }: { run: CronRun }) {
             }
             pulse={isRunning}
           />
-          {run.status.toUpperCase()}
+          {RUN_STATUS_LABEL[run.status] ?? run.status}
         </span>
       </span>
       <span className="cr-run-duration">
@@ -290,7 +305,7 @@ function RunRow({ run }: { run: CronRun }) {
       </span>
       <span className={`cr-run-result ${run.error ? "cr-run-error" : ""}`}>
         {isRunning
-          ? "In progress..."
+          ? "执行中..."
           : (run.error ?? run.resultSummary?.slice(0, 120) ?? "-")}
       </span>
     </div>
@@ -349,7 +364,7 @@ function JobCard({
             {job.name}
           </button>
           {job.deleteAfterRun && (
-            <span className="cr-badge-oneshot">once</span>
+            <span className="cr-badge-oneshot">一次</span>
           )}
         </div>
         <div className="cr-card-badges">
@@ -360,30 +375,30 @@ function JobCard({
       {/* Details grid */}
       <div className="cr-card-details">
         <div className="cr-detail">
-          <span className="cr-detail-label">Schedule</span>
+          <span className="cr-detail-label">调度</span>
           <span className="cr-detail-value">
             {formatSchedule(job.schedule)}
           </span>
         </div>
         <div className="cr-detail">
-          <span className="cr-detail-label">Next Run</span>
+          <span className="cr-detail-label">下次运行</span>
           <span className="cr-detail-value">{formatTs(job.nextRunAt)}</span>
         </div>
         <div className="cr-detail">
-          <span className="cr-detail-label">Priority</span>
+          <span className="cr-detail-label">优先级</span>
           <span className="cr-detail-value">
-            {job.priority <= 3 ? "High" : job.priority <= 7 ? "Medium" : "Normal"}{" "}
+            {priorityLabel(job.priority)}{" "}
             <span className="text-faint">({job.priority})</span>
           </span>
         </div>
         {job.payload.agentId && (
           <div className="cr-detail">
-            <span className="cr-detail-label">Agent</span>
+            <span className="cr-detail-label">智能体</span>
             <span className="cr-detail-value">{job.payload.agentId}</span>
           </div>
         )}
         <div className="cr-detail cr-message-preview">
-          <span className="cr-detail-label">Message</span>
+          <span className="cr-detail-label">任务内容</span>
           <span className="cr-message-text">{job.payload.message}</span>
         </div>
       </div>
@@ -402,11 +417,11 @@ function JobCard({
       {/* Expanded: Recent Runs */}
       {isExpanded && (
         <div className="cr-runs-panel">
-          <div className="cr-runs-title">Recent Runs</div>
+          <div className="cr-runs-title">最近运行</div>
           {runsLoading ? (
             <span className="w-4 h-4 border-2 border-border-2 border-t-accent rounded-full animate-spin inline-block" />
           ) : runs.length === 0 ? (
-            <div className="cr-runs-empty">No runs yet</div>
+            <div className="cr-runs-empty">暂无运行记录</div>
           ) : (
             <div className="cr-runs-list">
               {runs.map((run) => (
@@ -420,7 +435,7 @@ function JobCard({
       {/* Actions */}
       <div className="cr-card-actions">
         <Button variant="secondary" size="sm" onClick={onToggleExpand}>
-          {isExpanded ? "Hide Runs" : "Runs"}
+          {isExpanded ? "收起运行记录" : "运行记录"}
         </Button>
         <Button
           variant="secondary"
@@ -431,14 +446,14 @@ function JobCard({
           {isRunning ? (
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 border-2 border-faint border-t-accent rounded-full animate-spin inline-block" />
-              Running
+              运行中
             </span>
           ) : (
-            "Run Now"
+            "立即运行"
           )}
         </Button>
         <ConfirmDelete
-          confirmLabel="Delete this cron job?"
+          confirmLabel="删除这个定时任务？"
           onConfirm={onDelete}
         />
       </div>
@@ -653,19 +668,19 @@ export default function Cron() {
         );
       }
     } catch {
-      setFormError("Failed to create job");
+      setFormError("创建任务失败");
     }
   }
 
   if (loading && jobs.length === 0 && status === null) {
-    return <LoadingState message="Loading cron..." />;
+    return <LoadingState message="正在加载定时任务..." />;
   }
 
   if (!loading && status === null) {
     return (
       <EmptyState
-        title="Cron Unavailable"
-        description="Could not reach the cron scheduler. The cron process may still be starting."
+        title="定时任务不可用"
+        description="暂时无法连接定时调度器，调度进程可能仍在启动。"
       />
     );
   }
@@ -675,12 +690,12 @@ export default function Cron() {
   return (
     <div className="cr-page p-6">
       <PageHeader
-        title="Cron Jobs"
+        title="定时任务"
         subtitle={
           <>
-            {status?.running ? "Running" : "Stopped"} | {status?.jobCount ?? 0} jobs
-            {activeCount > 0 ? ` | ${activeCount} active` : ""}
-            {status?.nextDueAt ? ` | Next: ${formatTs(status.nextDueAt)}` : ""}
+            {status?.running ? "运行中" : "已停止"} | {status?.jobCount ?? 0} 个任务
+            {activeCount > 0 ? ` | ${activeCount} 个活跃运行` : ""}
+            {status?.nextDueAt ? ` | 下次：${formatTs(status.nextDueAt)}` : ""}
           </>
         }
         actions={
@@ -689,21 +704,21 @@ export default function Cron() {
             size="sm"
             onClick={() => setShowForm(!showForm)}
           >
-            {showForm ? "Cancel" : "New Job"}
+            {showForm ? "取消" : "新建任务"}
           </Button>
         }
       />
 
       {showForm && (
         <div className="cr-form-card">
-          <div className="cr-form-title">Create Job</div>
+          <div className="cr-form-title">创建任务</div>
           {formError && <div className="cr-error">{formError}</div>}
           <form onSubmit={handleSubmit(onCreateJob)}>
             <div className="cr-form-grid">
               <div>
                 <FormField error={errors.name}>
                   <Input
-                    label="Name"
+                    label="名称"
                     type="text"
                     {...register("name")}
                   />
@@ -711,16 +726,16 @@ export default function Cron() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Schedule Type
+                  调度类型
                 </label>
                 <Controller
                   control={control}
                   name="scheduleKind"
                   render={({ field }) => (
                     <select className={selectClass} {...field}>
-                      <option value="every">Interval</option>
-                      <option value="cron">Cron Expression</option>
-                      <option value="at">One-time</option>
+                      <option value="every">固定间隔</option>
+                      <option value="cron">Cron 表达式</option>
+                      <option value="at">一次性</option>
                     </select>
                   )}
                 />
@@ -729,7 +744,7 @@ export default function Cron() {
               {scheduleKind === "at" && (
                 <div>
                   <Input
-                    label="Date/Time"
+                    label="日期/时间"
                     type="datetime-local"
                     {...register("at")}
                   />
@@ -739,7 +754,7 @@ export default function Cron() {
                 <div className="cr-form-row">
                   <div className="flex-1">
                     <Input
-                      label="Interval (ms)"
+                      label="间隔（毫秒）"
                       type="number"
                       min={1000}
                       {...register("everyMs")}
@@ -758,7 +773,7 @@ export default function Cron() {
                 <>
                   <div>
                     <Input
-                      label="Cron Expression"
+                      label="Cron 表达式"
                       type="text"
                       placeholder="0 * * * *"
                       {...register("cronExpr")}
@@ -766,9 +781,9 @@ export default function Cron() {
                   </div>
                   <div>
                     <Input
-                      label="Timezone"
+                      label="时区"
                       type="text"
-                      placeholder="America/New_York"
+                      placeholder="Asia/Shanghai"
                       {...register("tz")}
                     />
                   </div>
@@ -778,12 +793,12 @@ export default function Cron() {
               <div className="cr-form-full">
                 <FormField error={errors.message}>
                   <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                    Message
+                    任务内容
                   </label>
                   <textarea
                     className="w-full px-4 py-2.5 bg-bg border border-border rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent placeholder:text-faint resize-none"
                     rows={2}
-                    placeholder="Task for the agent..."
+                    placeholder="输入要交给智能体执行的任务..."
                     {...register("message")}
                   />
                 </FormField>
@@ -791,14 +806,14 @@ export default function Cron() {
 
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Agent
+                  智能体
                 </label>
                 <Controller
                   control={control}
                   name="agentId"
                   render={({ field }) => (
                     <select className={selectClass} {...field}>
-                      <option value="">Default</option>
+                      <option value="">默认智能体</option>
                       {agents.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name} ({a.id})
@@ -810,18 +825,18 @@ export default function Cron() {
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Priority
+                  优先级
                 </label>
                 <Controller
                   control={control}
                   name="priority"
                   render={({ field }) => (
                     <select className={selectClass} {...field}>
-                      <option value="1">High (1)</option>
-                      <option value="3">Medium-High (3)</option>
-                      <option value="5">Medium (5)</option>
-                      <option value="10">Normal (10)</option>
-                      <option value="15">Low (15)</option>
+                      <option value="1">高 (1)</option>
+                      <option value="3">中高 (3)</option>
+                      <option value="5">中 (5)</option>
+                      <option value="10">普通 (10)</option>
+                      <option value="15">低 (15)</option>
                     </select>
                   )}
                 />
@@ -832,7 +847,7 @@ export default function Cron() {
                   name="deleteAfterRun"
                   render={({ field }) => (
                     <Toggle
-                      label="Delete after first run"
+                      label="首次运行后删除"
                       checked={field.value}
                       onChange={field.onChange}
                     />
@@ -843,7 +858,7 @@ export default function Cron() {
 
             <div className="cr-form-actions">
               <Button type="submit" size="sm" loading={formSaving} disabled={formSaving}>
-                Create
+                创建
               </Button>
               <Button
                 variant="secondary"
@@ -854,7 +869,7 @@ export default function Cron() {
                   setFormError("");
                 }}
               >
-                Cancel
+                取消
               </Button>
             </div>
           </form>
@@ -864,9 +879,9 @@ export default function Cron() {
       {jobs.length === 0 ? (
         <div className="cr-empty">
           <div className="cr-empty-icon">+</div>
-          <div className="cr-empty-title">No cron jobs</div>
+          <div className="cr-empty-title">暂无定时任务</div>
           <div className="cr-empty-desc">
-            Create one above or ask an agent to schedule a task.
+            可以在上方新建一个任务，或让智能体帮你安排任务。
           </div>
         </div>
       ) : (

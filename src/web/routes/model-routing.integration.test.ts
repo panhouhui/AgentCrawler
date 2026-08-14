@@ -2,7 +2,7 @@
  * Integration tests for the model-routing HTTP routes.
  *
  * Key contracts:
- * - GET /model-routing            — returns all 8 process route rows (seeded by migration 030)
+ * - GET /model-routing            — returns all process route rows
  * - PUT /model-routing/:key       — updates a route and reads back the new value
  * - PUT /model-routing/<unknown>  — 404 for unrecognised keys
  * - PUT /model-routing/:key       — 400 for an invalid provider value
@@ -69,7 +69,7 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("GET /model-routing", () => {
-  it("200 + returns all 8 routes after seed", async () => {
+  it("200 + returns all 11 routes after seed", async () => {
     const app = makeApp();
     const res = await get(app, "/model-routing");
 
@@ -77,9 +77,9 @@ describe("GET /model-routing", () => {
     const body = await json<{ routes: Array<{ key: string; provider: string; model: string }> }>(
       res,
     );
-    // Migration 030 seeds 8 rows; getAllModelRoutes always returns all 8 keys
+    // Migrations seed process routes; getAllModelRoutes always returns all keys
     // (falling back to defaults for any missing rows)
-    expect(body.routes.length).toBe(8);
+    expect(body.routes.length).toBe(11);
   });
 
   it("each route has key, provider, and model fields", async () => {
@@ -97,7 +97,7 @@ describe("GET /model-routing", () => {
     }
   });
 
-  it("includes all 8 expected process keys", async () => {
+  it("includes all expected process keys", async () => {
     const app = makeApp();
     const res = await get(app, "/model-routing");
     const body = await json<{ routes: Array<{ key: string }> }>(res);
@@ -111,6 +111,9 @@ describe("GET /model-routing", () => {
     expect(keys).toContain("sige.judge.2");
     expect(keys).toContain("pipeline.generator");
     expect(keys).toContain("agent-templates");
+    expect(keys).toContain("social.gate");
+    expect(keys).toContain("social.platform");
+    expect(keys).toContain("social.fusion");
   });
 });
 

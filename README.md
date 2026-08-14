@@ -1,521 +1,418 @@
-<p align="center">
-  <img src="src/web/opencrow.png" alt="OpenCrow" width="120" />
-</p>
+# AgentCrawler / AgentHub
 
-<h1 align="center">OpenCrow</h1>
+AgentCrawler 是一套面向社交平台巡逻、跨平台证据聚合和 Kan 推送的多智能体系统。前端应用名称为 AgentHub，仓库保留部分 `OPENCROW_*` 环境变量名用于兼容原始底层框架。
 
-<p align="center">
-  <a href="https://github.com/gokhantos/opencrow/actions"><img src="https://img.shields.io/github/actions/workflow/status/gokhantos/opencrow/ci.yml?branch=master&label=build" alt="Build"></a>
-  <a href="https://github.com/gokhantos/opencrow/releases"><img src="https://img.shields.io/github/v/release/gokhantos/opencrow?label=release" alt="Release"></a>
-  <a href="https://github.com/gokhantos/opencrow/blob/master/LICENSE"><img src="https://img.shields.io/github/license/gokhantos/opencrow" alt="License"></a>
-  <a href="https://github.com/gokhantos/opencrow/stargazers"><img src="https://img.shields.io/github/stars/gokhantos/opencrow" alt="Stars"></a>
-</p>
+本仓库只提交应用代码、数据库迁移、前端页面和智能体调度逻辑。真实账号、Cookie、Token、爬虫运行数据、数据库目录和日志不能提交到 GitHub。
 
-<p align="center">
-A self-hosted multi-agent AI platform that orchestrates specialized agents across Telegram, WhatsApp, and a web dashboard — with 100+ tools, 15 autonomous data scrapers, vector memory, and cron scheduling.
-</p>
+## 能做什么
 
----
+- 管理 X、Telegram、LIHKG、Facebook、GitHub、Instagram、Lien、NetLight、PTT、YouTube 等平台智能体。
+- 每个平台智能体调用对应爬虫工具，发现最近事件、复核同一事件并返回结构化证据。
+- 中国相关性门槛只允许“中国相关 + 政治安全/国家安全/领土主权/外部干预/社会稳定/政治谣言/不当政治言论”等风险进入深挖。
+- Social Fusion Agent 合并跨平台证据，判断是否同一事件、传播路径、核心节点和影响等级。
+- 达到阈值后进入 Kan 推送队列；同一事件会做 URL、节点、标题实体和事件指纹去重，避免重复推送。
+- 前端提供爬虫配置、模型配置、Kan 推送配置、社交融合运行状态和日志验收页面。
 
-## What Can OpenCrow Do?
+## 目录边界
 
-- **Run AI agents** on Telegram, WhatsApp, and web — each with its own persona, model, tools, and memory
-- **Scrape data sources** autonomously — HackerNews, Reddit, GitHub, X/Twitter, App Store, Play Store, news, and more
-- **Remember everything** — conversations, facts, and observations are indexed into vector memory and recalled across sessions
-- **Generate ideas** — research agents collect signals, ideation agents synthesize them into product/crypto/AI startup ideas on a schedule
-- **Automate with cron** — schedule any agent to run at intervals, one-shot times, or cron expressions
-- **Self-manage** — agents can deploy code, restart processes, manage other agents, and monitor system health
-- **Scale horizontally** — each agent, scraper, and subsystem runs as an isolated process with crash recovery
+推荐部署结构：
 
----
-
-## Architecture
-
-OpenCrow runs as a thin core process that spawns and supervises isolated child processes. Each subsystem (agents, scrapers, web, cron) runs independently with crash-loop detection, exponential backoff, and automatic recovery.
-
-```
-core (orchestrator + internal API)
-  └── spawns:
-      ├── cron                       (scheduled jobs + agent execution)
-      ├── web                        (React dashboard + Hono API)
-      ├── agent:default              (Telegram + WhatsApp channels)
-      ├── agent:<id>                 (per-agent Telegram/WhatsApp bots)
-      └── scraper:<id>               (one per data source, isolated)
+```text
+/opt/agenthub/
+  AgentCrawler/              # 本仓库
+  Crawler/                   # 外部爬虫脚本目录，不建议直接提交到本仓库
+  env/
+    model_env/
+      minimax_env            # MiniMax 模型密钥
+    Crawler_env/
+      X_env                  # 各平台爬虫配置
+      Telegram_env
+      SocialFusion_env       # 社交融合 Kan 总推送配置
+  test/                      # 工具测试输出，生产可单独挂载或清理
 ```
 
-- **Process isolation** — Kill a scraper, everything else keeps running. Crash one agent, others are unaffected.
-- **Dynamic scaling** — Agents and scrapers are added/removed via config. The orchestrator reconciles desired vs actual state every 5 seconds.
-- **Monolith mode** — For development, `src/gateway.ts` runs everything in a single process.
-
-## Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Runtime | [Bun](https://bun.sh) |
-| AI | Claude Agent SDK (`@anthropic-ai/claude-agent-sdk`) via MCP bridge |
-| Web Framework | Hono |
-| Frontend | React SPA (TSX + CSS bundled by Bun HTML imports) |
-| Database | PostgreSQL (`Bun.sql` tagged templates) |
-| Vector Search | Qdrant |
-| Telegram | grammY |
-| WhatsApp | Baileys |
-| Embeddings | OpenRouter (`text-embedding-3-small`, 512 dims) |
-
-## Agent System
-
-Agents are the core of OpenCrow. Each agent is an AI persona with its own system prompt, model, tools, and channel connections.
-
-### How agents work
-
-1. Message arrives via Telegram/WhatsApp/Web
-2. Router checks authorization, resolves which agent handles the chat
-3. Agent SDK spawns a Claude Code subprocess with the agent's system prompt
-4. OpenCrow tools are exposed via an in-process MCP server (no network hop)
-5. Agent iterates: thinking → tool use → response, auto-continuing until done
-6. SDK session ID is captured and resumed on next message for conversational continuity
-7. Observations are extracted from the conversation and indexed into memory
-
-### Agent features
-
-- **Session resume** — Conversations persist across messages via SDK session IDs
-- **Cross-session memory** — Related memories and user preferences are injected into prompts
-- **Auto-continuation** — Agents keep working when they have pending tool use, unlimited iterations
-- **Sub-agent spawning** — Agents can spawn specialized sub-agents for complex tasks
-- **Activity logging** — Real-time progress shown as an editable Telegram message with tool tracking
-- **Hot-reload** — Agent configs stored in DB (`config_overrides` table), reloaded every 30 seconds
-- **Agent templates** — Predefined templates (chatbot, researcher, coder, etc.) for quick agent creation
-- **Tool filtering** — Per-agent allowlist/denylist controls which tools are available
-- **Intelligent tool routing** — Tools are ranked by category match, recency, success rate, and keyword relevance
-
-### Built-in sub-agents
-
-31 specialized agents for orchestrated workflows:
-
-| Agent | Role |
-|-------|------|
-| architect | System design and architectural decisions |
-| planner | Implementation planning with risk assessment |
-| backend | Backend implementation (Bun, Hono, PostgreSQL) |
-| frontend | React SPA development |
-| coder | General-purpose coding |
-| reviewer | Code review for quality and maintainability |
-| security-reviewer | OWASP Top 10, secrets, SSRF, injection detection |
-| tdd-guide | Test-driven development enforcement |
-| build-error-resolver | Fix build/type errors with minimal diffs |
-| debugger | Root cause analysis and bug fixing |
-| devops | Infrastructure and deployment |
-| data-analyst | Data analysis and visualization |
-| tool-creator | Build new OpenCrow tools |
-| watchdog | Autonomous health monitoring (runs via cron) |
-| prompt-engineer | Prompt optimization |
-| product-strategist | Product direction and feature prioritization |
-| researcher | Deep research and information gathering |
-| writer | Technical writing and documentation |
-| api-designer | REST/GraphQL API design |
-| ux-advisor | UX review and recommendations |
-| performance-engineer | Performance profiling and optimization |
-| monitor | System monitoring and alerting |
-| digest | Content summarization and digests |
-| pipeline | Data pipeline design |
-| portfolio | Portfolio analysis |
-| crypto-analyst | Crypto market analysis |
-| ai-idea-gen | AI startup idea generation |
-| crypto-idea-gen | Crypto product idea generation |
-| mobile-idea-gen | Mobile app idea generation |
-| oss-idea-gen | Open source project idea generation |
-| opencrow | Default general-purpose agent |
-
-### Orchestration workflow
-
-```
-TRIVIAL task   → Agent answers directly
-MODERATE task  → Agent states plan, executes
-COMPLEX task   → Agent spawns sub-agents:
-                 planner → user approval → backend/frontend → reviewer → security-reviewer
-```
-
-## Tools (100+)
-
-Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. Tools are registered per-agent based on capabilities and exposed via MCP.
-
-### File Operations
-| Tool | Description |
-|------|-------------|
-| `bash` | Execute shell commands with safety restrictions |
-| `read_file` | Read file contents with optional line range |
-| `write_file` | Write/create files with parent directory creation |
-| `edit_file` | Surgical editing by replacing specific strings |
-| `list_files` | List directory contents with recursive traversal |
-| `grep` | Regex-based content search with file filtering |
-| `glob` | Find files matching glob patterns |
-
-### Code Development
-| Tool | Description |
-|------|-------------|
-| `run_tests` | Execute test suites (bun:test, jest, vitest, pytest, cargo, go) |
-| `validate_code` | Run typecheck, lint, and test validation |
-| `project_context` | Auto-detect project technology stack |
-| `git_operations` | Git ops with protected branch guards (status, diff, log, commit, push, pull, branch, stash) |
-| `deploy` | Smart deploy with path-based restart targeting (only restarts affected processes) |
-
-### Research & Data
-| Tool | Description |
-|------|-------------|
-| `get_hn_digest` / `search_hn` | HackerNews front page stories + semantic search |
-| `get_reddit_digest` / `search_reddit` | Reddit posts with subreddit filtering |
-| `get_github_repos` / `search_github_repos` | Trending GitHub repos with language filters |
-| `get_product_digest` / `search_products` | Product Hunt products and launches |
-| `get_timeline_digest` / `search_x_timeline` | X/Twitter timeline and semantic search |
-| `get_liked_tweets` / `get_x_analytics` | X/Twitter liked tweets and engagement analytics |
-| `get_appstore_rankings` / `get_appstore_complaints` / `search_appstore_reviews` | App Store rankings, low-rated reviews, and semantic search |
-| `get_playstore_rankings` / `get_playstore_complaints` / `search_playstore_reviews` | Play Store rankings, low-rated reviews, and semantic search |
-| `get_news_digest` / `search_news` | Multi-source news articles |
-| `get_calendar` | Economic calendar events with filtering |
-| `cross_source_search` | Search across ALL 19 indexed source types in one call |
-
-### Memory & Knowledge
-| Tool | Description |
-|------|-------------|
-| `search_memory` | Semantic search over past conversations |
-| `search_agent_observations` | Search knowledge extracted by other agents |
-| `cross_agent_memory` | Cross-agent memory sharing |
-| `use_skill` / `list_skills` | Load skill documents into context |
-
-### Ideas & Signals
-| Tool | Description |
-|------|-------------|
-| `save_idea` / `get_ideas` / `get_idea_stats` | Idea management and retrieval |
-| `save_signal` / `get_unconsumed_signals` / `consume_signals` | Research signal pipeline |
-| `get_signal_themes` | Signal categorization and themes |
-| `get_recent_idea_titles` / `get_rejected_ideas_feedback` | Idea deduplication and learning |
-
-### Analytics & Monitoring
-| Tool | Description |
-|------|-------------|
-| `db_query` | Read-only SQL SELECT queries |
-| `get_conversation_summaries` | Conversation analysis |
-| `get_tool_usage` / `get_agent_performance` | Usage and performance metrics |
-| `get_cost_summary` | Cost breakdown by agent/tool |
-| `get_error_summary` / `error_analysis` | Error rates and patterns |
-| `get_health_dashboard` | System health overview |
-| `get_process_logs` / `search_logs` | Process log inspection |
-| `get_routing_dashboard` / `get_routing_stats` | Message routing analytics |
-| `get_failure_patterns` / `get_anti_recommendations` | Failure pattern analysis and anti-recommendations |
-| `get_scraper_runs` / `get_subagent_runs` | Execution history |
-| `get_memory_stats` | Memory/context storage statistics |
-| `get_agent_capacity` | Agent load balancing and queue depth |
-
-### System & Automation
-| Tool | Description |
-|------|-------------|
-| `process_manage` | Manage orchestrated processes (restart, stop, start, list) |
-| `self_restart` | Restart own process with cooldown protection |
-| `manage_agent` | CRUD operations for agents |
-| `list_agents` | List available agents for sub-agent spawning |
-| `agent_templates` | Predefined agent templates for quick creation |
-| `cron` / `trigger_cron` | Manage and trigger scheduled jobs |
-| `send_message` | Queue messages for async Telegram/WhatsApp delivery |
-| `spawn_agent` | Execute sub-agents with task decomposition |
-| `ask_user` | Pause and ask user questions with optional choices |
-| `web_fetch` | HTTP client with SSRF prevention and rate limiting |
-
-## Data Scrapers
-
-15 autonomous scrapers run as isolated processes, each with its own tick interval and error handling. Scraped data is stored in PostgreSQL and indexed into Qdrant for semantic search.
-
-| Scraper | Interval | What it collects |
-|---------|----------|-----------------|
-| **HackerNews** | 10 min | Front page stories (title, URL, points, comments) |
-| **Reddit** | 30 min | Posts from user feeds, multi-account support with cookies |
-| **GitHub** | 12 hrs | Daily + weekly trending repos (stars, forks, language) |
-| **Product Hunt** | 10 min | Daily products (votes, topics, makers), multi-account |
-| **News** | 15-120 min | CryptoPanic, Cointelegraph, Reuters, Investing.com (articles + economic calendar) |
-| **X/Twitter** | varies | Timeline, bookmarks, auto-like, auto-follow via Playwright + GraphQL interception |
-| **App Store** | 60 min | Top Free/Paid rankings + reviews for top 10 apps |
-| **Play Store** | 60 min | Top Free rankings + reviews with full descriptions via gplay |
-
-### Scraper features
-
-- **Browser automation** — X/Twitter and News use Playwright for JavaScript-heavy sites
-- **Anti-detection** — Stealth scripts, cookie auth, GraphQL API interception for X/Twitter
-- **Multi-account** — Reddit, Product Hunt support multiple accounts with separate cookies
-
-- **Rate limiting** — Per-source delays (App Store: 2s between calls)
-
-### X/Twitter automation
-
-The X/Twitter scraper is a full automation suite:
-
-- **Timeline scraping** — Capture tweets from your home timeline via GraphQL interception
-- **Bookmark sharing** — Share bookmarked tweets to configured Telegram chats
-- **Auto-like** — Automatically like tweets matching configured criteria
-- **Auto-follow** — Follow users based on interaction patterns
-- **Interaction tracking** — Track likes, retweets, replies across accounts
-
-## Memory & RAG
-
-Hybrid search engine combining vector similarity and full-text search for long-term agent memory.
-
-### Search pipeline
-
-1. **Query expansion** — Semantic expansion with synonyms and related terms
-2. **Parallel search** — Vector (Qdrant) + full-text (PostgreSQL) run concurrently
-3. **Score merging** — 70% vector weight + 30% full-text weight
-4. **Temporal decay** — Per-kind half-life (observations decay faster than documents)
-5. **MMR deduplication** — Maximal marginal relevance to reduce redundancy
-6. **Channel scoping** — Conversation memories stay within their channel
-
-### Memory types
-
-Source kinds, each with its own chunk profile and temporal decay: conversations, notes, documents, tweets, articles, products, stories, Reddit posts, GitHub repos, observations, ideas, app reviews, and app rankings.
-
-### Observation extraction
-
-After each conversation, observations (facts, preferences, patterns) are automatically extracted and indexed. These are injected into future prompts for cross-session context.
-
-## Channels
-
-Plugin-based channel system with a unified adapter interface.
-
-### Telegram
-- grammY-based with serial polling (no runner — avoids 409 conflicts)
-- Per-chat message queuing via sequentialize middleware
-- Activity log: editable message showing real-time tool progress
-- Smart message chunking for 4096 character limit
-- HTML formatting with inline buttons
-
-### WhatsApp
-- Baileys (Web WhatsApp protocol)
-- QR code / pairing code authentication
-- Per-number and per-group sender filtering
-- Media support (images, documents)
-
-### Web Chat
-- Hono API route (`POST /api/chat`)
-- Bearer token auth via `OPENCROW_WEB_TOKEN`
-
-### Router
-
-The message router handles authorization, agent selection, and response delivery:
-
-- **Authorization** — Per-channel allowed senders (userIds for Telegram, numbers for WhatsApp)
-- **Agent selection** — Explicit `/agent` command > persistent routing rules > default agent
-- **Commands** — `/stop` (abort), `/clear` (reset session), `/status` (health), `/agent [id]` (switch)
-- **Concurrency** — One active message per chat, prevents overlapping processing
-- **Input validation** — Per-agent max input length enforcement
-
-## Cron Scheduler
-
-Agents can be triggered on schedules for autonomous work.
-
-### Schedule types
-
-- **`at`** — One-time execution at a specific timestamp
-- **`every`** — Interval-based (e.g., every 6 hours)
-- **`cron`** — Standard cron expressions via croner
-
-### Built-in jobs
-
-- **Idea generation** — Research agents save signals, ideation agents synthesize them (every 6 hours)
-- **Watchdog** — Health monitoring: processes, errors, cron success, costs, DB, scrapers (every 30 minutes)
-- **Digests** — Scheduled content summaries
-
-### Execution
-
-Jobs run agents with full tool access in isolation. Progress is tracked per-run with status, duration, and result summaries stored in the database.
-
-## Web Dashboard
-
-React SPA served via Bun HTML imports with Hono API backend. 30+ views covering every subsystem.
-
-### Views
-
-| View | What it shows |
-|------|--------------|
-| **Overview** | System health, active processes, recent activity |
-| **Agents** | Create, edit, delete agents — configure prompts, models, tools, channels |
-| **Chat** | Web-based conversation interface |
-| **Cron** | Job management, manual triggering, execution history |
-| **Usage** | Tool usage stats, agent performance, cost breakdown |
-| **Memory** | Semantic search and inspection of stored memories |
-| **Ideas** | Idea browser with filtering and stats |
-| **Processes** | Live process tree with restart/stop controls |
-| **Logs** | Real-time process log viewer |
-| **Routing Rules** | Message routing configuration |
-| **Failures** | Failure pattern analysis |
-| **System Metrics** | System-level metrics and health |
-| **Sessions** | Conversation session browser |
-| **Skills** | Skill document management |
-| **Tools** | Tool registry inspection |
-| **HackerNews** | Scraped stories browser |
-| **Reddit** | Reddit post browser with account management |
-| **GitHub** | Trending repos browser |
-| **News** | News article browser |
-| **App Store** | App rankings and reviews |
-
-| **X/Twitter** | Timeline, bookmarks, auto-like, auto-follow management |
-| **Product Hunt** | Product browser with account management |
-
-### Auth
-
-`OPENCROW_WEB_TOKEN` environment variable → Bearer token in localStorage → 401 shows login modal.
-
-## Quick Start
+如果目录不是这个结构，请用环境变量显式指定：
 
 ```bash
-curl -fsSL https://opencrow.dev/install.sh | bash
-opencrow setup
+export AGENT_HUB_ROOT=/opt/agenthub
+export CRAWLER_ROOT=/opt/agenthub/Crawler
+export MODEL_ENV_ROOT=/opt/agenthub/env/model_env
+export CRAWLER_ENV_ROOT=/opt/agenthub/env/Crawler_env
 ```
 
-The setup wizard handles everything: Docker containers, database, `.env`, Telegram/WhatsApp, and service installation.
+## 不要提交的内容
+
+已在 `.gitignore` 中忽略：
+
+- `.env`
+- `env/`
+- `Crawler/`
+- `.runtime/`
+- `.tmp/`
+- `node_modules/`
+- `data/`
+- `logs/`
+- `*.log`
+- `*.cookie`
+- `cookies.json`
+- `token.json`
+- `tokens.json`
+- `session.json`
+- `sessions/`
+
+上传前建议检查：
 
 ```bash
-opencrow doctor     # Check system health
-opencrow update     # Pull latest + reinstall + restart
-opencrow status     # Show running service status
-opencrow start      # Start in foreground (monolith mode)
-opencrow version    # Show version info
+git status --short
+git ls-files | grep -Ei '(\.env|cookie|token|secret|session|\.runtime|Crawler_env|model_env)'
 ```
 
-## Manual Setup
+第二条命令不应该输出真实敏感配置文件。
 
-### Prerequisites
+## 环境要求
 
-- [Bun](https://bun.sh) runtime
-- **macOS (native path):** Homebrew — `postgresql@17` and `python@3.11`; [Ollama](https://ollama.com) for embeddings
-- **Linux / server path:** Docker (PostgreSQL + Qdrant run in containers)
-- Claude Agent SDK credentials (`~/.claude/.credentials.json`)
+Linux 推荐：
 
-### Install
+- Ubuntu 22.04/24.04 或 Debian 12
+- Bun 1.1+
+- PostgreSQL 15+
+- Python 3.10+
+- Git
+- 可选：Qdrant、Ollama、Playwright Chromium
+
+Windows 开发环境：
+
+- Bun for Windows
+- PostgreSQL
+- Python 3.10+
+- PowerShell
+
+## Linux 快速部署
+
+### 1. 安装基础依赖
+
+```bash
+sudo apt update
+sudo apt install -y git curl unzip python3 python3-venv python3-pip postgresql postgresql-contrib
+curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc
+bun --version
+```
+
+### 2. 拉取仓库
+
+```bash
+sudo mkdir -p /opt/agenthub
+sudo chown -R "$USER":"$USER" /opt/agenthub
+cd /opt/agenthub
+git clone https://github.com/panhoohui/AgentCrawler.git
+cd AgentCrawler
+```
+
+### 3. 安装依赖
 
 ```bash
 bun install
+```
+
+依赖会安装在当前项目的 `node_modules/`，不会写入 C 盘或系统目录。
+
+### 4. 创建数据库
+
+```bash
+sudo -u postgres psql
+```
+
+在 PostgreSQL shell 中执行：
+
+```sql
+CREATE USER agenthub WITH PASSWORD '请替换为强密码';
+CREATE DATABASE agenthub OWNER agenthub;
+\q
+```
+
+### 5. 准备 `.env`
+
+```bash
 cp .env.example .env
+nano .env
 ```
 
-### Environment variables
+至少配置：
 
-```bash
-# Required
-OPENCROW_WEB_TOKEN=...                    # Web dashboard auth token
-TELEGRAM_BOT_TOKEN=...                    # Telegram bot token from BotFather
-OPENROUTER_API_KEY=...                    # For embeddings (text-embedding-3-small)
-DATABASE_URL=postgres://opencrow:changeme@127.0.0.1:5432/opencrow
+```env
+DATABASE_URL=postgres://agenthub:请替换为强密码@127.0.0.1:5432/agenthub
+OPENCROW_WEB_TOKEN=请替换为后台访问令牌
+OPENCROW_INTERNAL_TOKEN=请替换为内部服务令牌
+OPENCROW_WEB_HOST=0.0.0.0
+OPENCROW_WEB_PORT=48086
 
-# Optional
-QDRANT_URL=http://127.0.0.1:6333         # Vector search (defaults to this)
-OPENCROW_WEB_HOST=127.0.0.1              # Web UI bind address
-OPENCROW_WEB_PORT=48080                  # Web UI port
+AGENT_HUB_ROOT=/opt/agenthub
+CRAWLER_ROOT=/opt/agenthub/Crawler
+MODEL_ENV_ROOT=/opt/agenthub/env/model_env
+CRAWLER_ENV_ROOT=/opt/agenthub/env/Crawler_env
+AGENTHUB_CRAWLER_PROXY_PORT=59217
 ```
 
-### Start services
+`OPENCROW_*` 是历史兼容变量名，生产环境仍需要配置。
 
-#### Native macOS (default local)
-
-Install prerequisites via Homebrew and pull the embeddings model:
+### 6. 配置 MiniMax 模型
 
 ```bash
-brew install postgresql@17 python@3.11
-ollama pull nomic-embed-text
+mkdir -p /opt/agenthub/env/model_env
+nano /opt/agenthub/env/model_env/minimax_env
+chmod 600 /opt/agenthub/env/model_env/minimax_env
 ```
 
-Provision and start all four services (Postgres, Qdrant, mem0, app) via launchd:
+示例：
 
-```bash
-bun run src/cli.ts native up
+```env
+MINIMAX_INTL_API_KEY=请填入MiniMax密钥
+MINIMAX_BASE_URL=https://api.minimax.io/anthropic
 ```
 
-Verify everything is healthy:
+也可以只写一行密钥，系统会默认使用 `https://api.minimax.io/anthropic`。
+
+### 7. 配置爬虫环境
+
+每个平台一个环境文件，放在 `CRAWLER_ENV_ROOT`：
 
 ```bash
-bun run src/cli.ts doctor
+mkdir -p /opt/agenthub/env/Crawler_env
+touch /opt/agenthub/env/Crawler_env/X_env
+touch /opt/agenthub/env/Crawler_env/Telegram_env
+touch /opt/agenthub/env/Crawler_env/YouTube_env
+chmod 600 /opt/agenthub/env/Crawler_env/*_env
 ```
 
-#### Docker (Linux server deploy)
+常见平台：
 
-For a Linux server or any non-macOS host, use Docker Compose instead:
+- `X_env`
+- `Telegram_env`
+- `Lihkg_env`
+- `Facebook_env`
+- `GitHub_env`
+- `Instagram_env`
+- `Lien_env`
+- `NetLight_env`
+- `PTT_env`
+- `YouTube_env`
+- `SocialFusion_env`
+
+这些文件可以包含账号、Cookie、Session、代理、频道等配置，不能提交到 GitHub。
+
+### 8. 配置 Kan 总推送
+
+社交融合总推送建议写入：
 
 ```bash
-docker compose up -d    # PostgreSQL + Qdrant
+nano /opt/agenthub/env/Crawler_env/SocialFusion_env
+chmod 600 /opt/agenthub/env/Crawler_env/SocialFusion_env
 ```
 
-### Run
+示例：
+
+```env
+SOCIAL_FUSION_KAN_BASE_URL=https://kan.example.com
+SOCIAL_FUSION_KAN_BOT_TOKEN=请填入机器人访问令牌
+SOCIAL_FUSION_KAN_CHANNEL_IDS=频道ID1,频道ID2
+SOCIAL_FUSION_KAN_SOURCE_LABELS=社交融合监控
+```
+
+各平台也可以在前端“Kan 推送配置”页面维护频道映射。
+
+### 9. 准备外部爬虫目录
+
+爬虫脚本默认读取：
+
+```text
+/opt/agenthub/Crawler
+```
+
+如果爬虫目录在其他位置：
 
 ```bash
-# Development (monolith, single process)
-bun run dev
+export CRAWLER_ROOT=/data/crawlers
+```
 
-# Production (distributed, process tree)
+生产环境建议让爬虫目录和配置目录分离，避免把账号配置混入代码仓库。
+
+### 10. 启动
+
+开发或手动启动：
+
+```bash
 bun run start
 ```
 
-## Development
+单独启动前端 Web：
 
 ```bash
-bun run dev           # Watch mode (monolith)
-bun run dev:web       # Web UI only
-bun test              # Run tests
-bun run typecheck     # TypeScript check
-bun run tw            # Tailwind CSS watch
-bun run tw:build      # Tailwind CSS build
+bun run start:web
 ```
 
-## Deployment
+默认前端地址：
 
-### systemd
+```text
+http://127.0.0.1:48086
+```
+
+如果部署在服务器上，请用反向代理暴露 `48086`，并设置 `OPENCROW_WEB_HOST=0.0.0.0`。
+
+## systemd 示例
+
+创建服务：
 
 ```bash
-bun run service:install    # Install opencrow.service
-bun run service:start      # Start
-bun run service:stop       # Stop
-bun run service:restart    # Restart
-bun run service:status     # Check health
+sudo nano /etc/systemd/system/agenthub-web.service
 ```
 
-### Manual deploy
+示例内容：
+
+```ini
+[Unit]
+Description=AgentHub Web
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/agenthub/AgentCrawler
+EnvironmentFile=/opt/agenthub/AgentCrawler/.env
+ExecStart=/home/agenthub/.bun/bin/bun run start:web
+Restart=always
+RestartSec=5
+User=agenthub
+Group=agenthub
+
+[Install]
+WantedBy=multi-user.target
+```
+
+启用：
 
 ```bash
-git push origin master
-ssh <server> "cd ~/opencrow && git pull origin master"
-sudo systemctl restart opencrow
+sudo systemctl daemon-reload
+sudo systemctl enable --now agenthub-web
+sudo systemctl status agenthub-web
 ```
 
-## Project Structure
+如果同时需要核心进程，可另建 `agenthub-core.service`，`ExecStart` 使用：
 
+```ini
+ExecStart=/home/agenthub/.bun/bin/bun run start
 ```
-src/
-├── agent/           # Agent SDK integration, MCP bridge, streaming, sessions
-├── agents/          # Agent registry and config resolution
-├── channels/        # Telegram + WhatsApp plugins, registry, manager
-├── config/          # Schema (Zod), loader, env overrides
-├── cron/            # Scheduler, executor, job store, delivery poller
-├── daemon/          # systemd + launchd service management
-├── entries/         # Process entry points (core, agent, cron, scraper)
-├── health/          # Checkpoint, rollback notifier
-├── memory/          # RAG pipeline (indexer, search, embeddings, Qdrant, chunker)
-├── process/         # Orchestrator, manifest, bootstrap, supervisor
-├── prompts/         # Prompt loader
-├── router/          # Message routing, activity logging
-├── sources/         # 15 data scrapers (each in own directory)
-├── store/           # Database init + migrations
-├── tools/           # 100+ tool definitions (registry, types, factories)
-├── web/             # Hono routes + React SPA
-│   ├── routes/      # API endpoints (/api/*)
-│   └── ui/          # React components, views, styles
-├── worktree/        # Git worktree management for isolated agent work
-├── cli.ts           # CLI entry point
-├── gateway.ts       # Monolith mode (all-in-one)
-├── index.ts         # Default entry
-├── logger.ts        # Pino-based structured logging
-└── web-index.ts     # Web-only entry point
 
-prompts/
-├── SOUL.md          # Core identity and values
-├── TECH.md          # Technical context and conventions
-├── WORKFLOW.md      # Decision and execution process
-├── ORCHESTRATION.md # Sub-agent coordination rules
-└── agents/          # 31 specialized agent prompts
+## Windows 启动
 
-skills/              # Reusable skill documents for agents
-bin/                 # Guardian scripts (crash-loop detection + rollback)
+在项目目录执行：
+
+```powershell
+cd F:\AgentHub\AgentHub
+.\node_modules\.bin\bun.cmd install
+copy .env.example .env
+.\node_modules\.bin\bun.cmd run start:web
 ```
+
+Windows 推荐目录：
+
+```text
+F:\AgentHub\
+  AgentHub\
+  Crawler\
+  env\
+    model_env\
+    Crawler_env\
+```
+
+## 验证命令
+
+```bash
+bun run typecheck
+bun test src/pipelines/social/pipeline.test.ts src/pipelines/social/dedupe.test.ts
+bun test src/integrations/kan/config.isolated.test.ts
+```
+
+Windows：
+
+```powershell
+.\node_modules\.bin\bun.cmd run typecheck
+.\node_modules\.bin\bun.cmd test src\pipelines\social\pipeline.test.ts src\pipelines\social\dedupe.test.ts
+.\node_modules\.bin\bun.cmd test src\integrations\kan\config.isolated.test.ts
+```
+
+## 社交智能体流程
+
+```mermaid
+flowchart TD
+  A["平台智能体自主发现事件"] --> B["候选事件池"]
+  B --> C["中国政治安全门槛判断"]
+  C -->|不相关或风险不足| D["跳过/低优先级观察"]
+  C -->|通过| E["社交总控 Agent"]
+  E --> F["通知其他平台复核同一事件"]
+  F --> G["平台爬虫工具返回 URL/频道/内容/指标"]
+  G --> H["平台证据报告"]
+  H --> I["Social Fusion Agent"]
+  I --> J["事件融合、传播路径、关系链"]
+  J --> K["Kan 推送阈值和重复过滤"]
+  K -->|通过且非重复| L["Kan 推送队列"]
+  K -->|重复或不足| M["持续监控"]
+```
+
+## 推送规则
+
+Kan 推送必须满足：
+
+- 至少两个平台发现同一事件。
+- 事件属于中国政治安全、国家安全、领土主权、外部干预、社会稳定、政治谣言或不当政治言论风险。
+- 影响等级、同一事件置信度或趋势达到阈值。
+- 最近窗口内没有相同事件已推送或已过滤。
+
+系统不会因为普通中国新闻、经济信息、娱乐话题、一般商业事件直接推送。
+
+## 常见问题
+
+### 1. 前端能打开，但智能体不能运行
+
+检查：
+
+```bash
+cat .env
+ls -la /opt/agenthub/env/model_env
+ls -la /opt/agenthub/env/Crawler_env
+```
+
+确认 `DATABASE_URL`、`OPENCROW_WEB_TOKEN`、`MINIMAX_INTL_API_KEY` 已配置。
+
+### 2. 爬虫无数据
+
+检查：
+
+- `CRAWLER_ROOT` 是否指向真实爬虫目录。
+- 平台 env 文件是否存在。
+- 代理端口是否正确，默认 `59217`。
+- 爬虫账号、Cookie 或 Session 是否过期。
+
+### 3. Kan 不推送
+
+检查：
+
+- `SocialFusion_env` 是否有 `SOCIAL_FUSION_KAN_BOT_TOKEN`。
+- `SOCIAL_FUSION_KAN_CHANNEL_IDS` 是否正确。
+- 事件是否真的达到政治安全风险门槛。
+- 是否被重复事件过滤。
+
+### 4. 不要把哪些内容上传
+
+不要上传：
+
+- `.env`
+- `env/`
+- `Crawler/` 中带账号配置的内容
+- `.runtime/`
+- `.tmp/`
+- `test/`
+- Cookie、Token、Session、数据库文件、日志
+
+## 许可证与来源
+
+本项目基于 OpenCrow 代码底座改造，当前应用和部署文档面向 AgentHub / AgentCrawler 场景维护。

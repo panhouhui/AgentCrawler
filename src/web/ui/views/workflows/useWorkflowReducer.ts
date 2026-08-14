@@ -54,7 +54,7 @@ const HISTORY_LIMIT = 50;
 
 const initialWorkflowState: WorkflowState = {
   id: null,
-  name: "Untitled Workflow",
+  name: "未命名工作流",
   description: "",
   enabled: false,
   nodes: [],

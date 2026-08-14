@@ -112,15 +112,15 @@ function TriggerProperties({
   onChange: (partial: Partial<TriggerNodeData>) => void;
 }) {
   const TRIGGER_TYPES = [
-    { value: "manual", label: "Manual" },
-    { value: "cron", label: "Cron" },
+    { value: "manual", label: "手动" },
+    { value: "cron", label: "定时" },
     { value: "webhook", label: "Webhook" },
   ] as const;
 
   return (
     <>
       <div className="mb-4">
-        <Label>Trigger Type</Label>
+        <Label>触发类型</Label>
         <FieldSelect
           value={data.triggerType}
           onChange={(v) =>
@@ -131,7 +131,7 @@ function TriggerProperties({
       </div>
       {data.triggerType === "cron" && (
         <div className="mb-4">
-          <Label>Cron Expression</Label>
+          <Label>Cron 表达式</Label>
           <FieldInput
             value={data.cronExpression ?? ""}
             onChange={(v) => onChange({ cronExpression: v })}
@@ -141,15 +141,15 @@ function TriggerProperties({
       )}
       {data.triggerType === "webhook" && (
         <div className="mb-4">
-          <Label>Webhook URL</Label>
+          <Label>Webhook 地址</Label>
           <p className="text-xs text-muted leading-relaxed">
-            Send a <code className="font-mono text-accent bg-bg-2 px-1 rounded">POST</code> request to:
+            向下面地址发送 <code className="font-mono text-accent bg-bg-2 px-1 rounded">POST</code> 请求：
           </p>
           <div className="mt-1.5 px-2 py-1.5 bg-bg border border-border-2 rounded-md text-xs font-mono text-faint break-all">
             /api/webhooks/&#123;workflowId&#125;
           </div>
           <p className="text-[11px] text-faint mt-1.5">
-            The workflow must be enabled. The request body is passed as trigger input.
+            工作流必须处于启用状态。请求体会作为触发器输入传入。
           </p>
         </div>
       )}
@@ -179,7 +179,7 @@ function AgentProperties({
   return (
     <>
       <div className="mb-4">
-        <Label>Agent</Label>
+        <Label>智能体</Label>
         <FieldSelect
           value={data.agentId}
           onChange={(v) => {
@@ -187,15 +187,15 @@ function AgentProperties({
             onChange({ agentId: v, agentName: agent?.name ?? v });
           }}
           options={agentOptions}
-          placeholder="Select agent..."
+          placeholder="选择智能体..."
         />
       </div>
       <div className="mb-4">
-        <Label>Prompt Override</Label>
+        <Label>提示词覆盖</Label>
         <FieldTextarea
           value={data.prompt ?? ""}
           onChange={(v) => onChange({ prompt: v })}
-          placeholder="Optional prompt to pass to the agent..."
+          placeholder="可选：传给智能体的提示词..."
           rows={4}
         />
       </div>
@@ -234,7 +234,7 @@ function SchemaField({
           value={String(value ?? "")}
           onChange={(v) => onChange(v)}
           options={options}
-          placeholder={`Select ${label}...`}
+          placeholder={`选择 ${label}...`}
         />
         {schema.description && (
           <p className="text-[11px] text-faint mt-0.5 leading-relaxed">{schema.description}</p>
@@ -279,7 +279,7 @@ function SchemaField({
             onChange(v === "" ? undefined : v);
           }
         }}
-        placeholder={schema.description ?? `Enter ${label}...`}
+        placeholder={schema.description ?? `输入 ${label}...`}
         type={isNumeric ? "number" : "text"}
       />
       {schema.description && (
@@ -363,13 +363,13 @@ function ToolProperties({
   return (
     <>
       <div className="mb-4">
-        <Label>Tool</Label>
+        <Label>工具</Label>
         {toolOptions.length > 0 ? (
           <FieldSelect
             value={data.toolName}
             onChange={handleToolChange}
             options={toolOptions}
-            placeholder="Select tool..."
+            placeholder="选择工具..."
           />
         ) : (
           <FieldInput
@@ -388,7 +388,7 @@ function ToolProperties({
 
       {paramEntries.length > 0 && !showRawJson && (
         <div className="mb-4">
-          <Label>Parameters</Label>
+          <Label>参数</Label>
           <div className="mt-1">
             {paramEntries.map(([name, schema]) => (
               <SchemaField
@@ -402,14 +402,14 @@ function ToolProperties({
             ))}
           </div>
           <p className="text-[11px] text-faint mt-1">
-            Use <code className="font-mono text-accent bg-bg-2 px-0.5 rounded">{"{{nodeId.output}}"}</code> to reference other nodes.
+            使用 <code className="font-mono text-accent bg-bg-2 px-0.5 rounded">{"{{nodeId.output}}"}</code> 引用其他节点。
           </p>
         </div>
       )}
 
       {(showRawJson || paramEntries.length === 0) && data.toolName && (
         <div className="mb-4">
-          <Label>Input (JSON)</Label>
+          <Label>输入（JSON）</Label>
           <FieldTextarea
             value={JSON.stringify(inputMapping, null, 2)}
             onChange={handleRawJsonChange}
@@ -425,7 +425,7 @@ function ToolProperties({
           onClick={() => setShowRawJson((v) => !v)}
           className="text-[11px] text-faint hover:text-muted transition-colors cursor-pointer mb-4"
         >
-          {showRawJson ? "Switch to form" : "Edit as JSON"}
+          {showRawJson ? "切换为表单" : "用 JSON 编辑"}
         </button>
       )}
     </>
@@ -453,7 +453,7 @@ function SkillProperties({
 
   return (
     <div className="mb-4">
-      <Label>Skill</Label>
+      <Label>技能</Label>
       <FieldSelect
         value={data.skillId}
         onChange={(v) => {
@@ -461,7 +461,7 @@ function SkillProperties({
           onChange({ skillId: v, skillName: skill?.name ?? v });
         }}
         options={skillOptions}
-        placeholder="Select skill..."
+        placeholder="选择技能..."
       />
     </div>
   );
@@ -476,7 +476,7 @@ function ConditionProperties({
 }) {
   return (
     <div className="mb-4">
-      <Label>Expression</Label>
+      <Label>表达式</Label>
       <FieldTextarea
         value={data.expression}
         onChange={(v) => onChange({ expression: v })}
@@ -484,7 +484,7 @@ function ConditionProperties({
         rows={3}
       />
       <p className="text-[11px] text-muted mt-1.5">
-        True edge runs when expression is truthy.
+        表达式为真时会执行 true 分支。
       </p>
     </div>
   );
@@ -499,7 +499,7 @@ function TransformProperties({
 }) {
   return (
     <div className="mb-4">
-      <Label>Template</Label>
+      <Label>模板</Label>
       <FieldTextarea
         value={data.template}
         onChange={(v) => onChange({ template: v })}
@@ -518,14 +518,14 @@ function OutputProperties({
   onChange: (partial: Partial<OutputNodeData>) => void;
 }) {
   const ACTION_OPTS = [
-    { value: "return", label: "Return result" },
-    { value: "send_channel", label: "Send to channel" },
+    { value: "return", label: "返回结果" },
+    { value: "send_channel", label: "发送到渠道" },
   ] as const;
 
   return (
     <>
       <div className="mb-4">
-        <Label>Action</Label>
+        <Label>动作</Label>
         <FieldSelect
           value={data.action}
           onChange={(v) =>
@@ -536,7 +536,7 @@ function OutputProperties({
       </div>
       {data.action === "send_channel" && (
         <div className="mb-4">
-          <Label>Channel ID</Label>
+          <Label>渠道 ID</Label>
           <FieldInput
             value={data.channelId ?? ""}
             onChange={(v) => onChange({ channelId: v })}
@@ -571,16 +571,16 @@ export function PropertiesPanel({ node, dispatch }: PropsPanelProps) {
     <aside className="w-64 shrink-0 bg-bg-1 border-l border-border flex flex-col overflow-y-auto">
       <div className="px-4 py-3 border-b border-border">
         <h3 className="text-xs font-semibold text-muted uppercase tracking-wider m-0">
-          Properties
+          属性
         </h3>
       </div>
       <div className="p-4">
         <div className="mb-4">
-          <Label>Label</Label>
+          <Label>标签</Label>
           <FieldInput
             value={data.label}
             onChange={handleLabelChange}
-            placeholder="Node label"
+            placeholder="节点标签"
           />
         </div>
 
@@ -635,7 +635,7 @@ export function PropertiesPanel({ node, dispatch }: PropsPanelProps) {
             }
             className="w-full px-3 py-2 text-sm text-danger border border-danger/20 bg-danger-subtle rounded-md hover:bg-danger hover:text-white hover:border-danger transition-colors cursor-pointer"
           >
-            Delete node
+            删除节点
           </button>
         </div>
       </div>

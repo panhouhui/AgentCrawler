@@ -5,7 +5,9 @@ import { getSecret } from "../config/secrets";
 
 const log = createLogger("tool:process-manage");
 
-const CORE_URL = "http://127.0.0.1:48081";
+const CORE_URL =
+  process.env.OPENCROW_INTERNAL_API_URL ??
+  `http://${process.env.OPENCROW_INTERNAL_API_HOST ?? "127.0.0.1"}:${process.env.OPENCROW_INTERNAL_API_PORT ?? "48081"}`;
 const RESTART_COOLDOWN_MS = 60_000; // 60s cooldown per target
 
 /**

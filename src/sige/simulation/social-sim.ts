@@ -145,7 +145,7 @@ async function simulateBatch(
   ideas: readonly ScoredIdea[],
   priorContext: string,
   model: string,
-  provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode",
+  provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "minimax" | "opencode",
   signal?: AbortSignal,
 ): Promise<BatchLlmResponse> {
   const citizenList = citizens

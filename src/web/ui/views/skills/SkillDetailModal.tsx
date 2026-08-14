@@ -67,7 +67,7 @@ export function SkillDetailModal({
         </div>
       ) : (
         <div className="bg-bg-2 rounded-lg p-6 text-center text-muted">
-          <p className="text-sm">No content defined for this skill.</p>
+          <p className="text-sm">这个技能还没有定义内容。</p>
         </div>
       )}
 
@@ -75,7 +75,7 @@ export function SkillDetailModal({
         <div>
           {confirmDelete ? (
             <span className="inline-flex items-center gap-2">
-              <span className="text-sm text-muted">Delete this skill?</span>
+              <span className="text-sm text-muted">删除这个技能？</span>
               <Button
                 variant="danger"
                 size="sm"
@@ -84,14 +84,14 @@ export function SkillDetailModal({
                   onDelete(skill.id);
                 }}
               >
-                Confirm
+                确认
               </Button>
               <Button
                 variant="secondary"
                 size="sm"
                 onClick={() => setConfirmDelete(false)}
               >
-                Cancel
+                取消
               </Button>
             </span>
           ) : (
@@ -101,13 +101,13 @@ export function SkillDetailModal({
               onClick={() => setConfirmDelete(true)}
             >
               <Trash2 size={14} />
-              Delete
+              删除
             </Button>
           )}
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
-            Close
+            关闭
           </Button>
           {detail && (
             <Button
@@ -115,7 +115,7 @@ export function SkillDetailModal({
               onClick={() => onEdit(detail)}
             >
               <Pencil size={14} />
-              Edit
+              编辑
             </Button>
           )}
         </div>

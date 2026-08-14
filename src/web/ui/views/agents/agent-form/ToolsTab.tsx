@@ -18,20 +18,20 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
       {/* Tool Access */}
       <div className="flex flex-col gap-2.5">
         <h4 className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-1 pb-2 border-b border-border">
-          Tool Access
+          工具权限
         </h4>
         <div className="mb-5">
           <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-            Mode
+            模式
           </label>
           <Controller
             control={control}
             name="toolMode"
             render={({ field }) => (
               <select className={SELECT_CLS} {...field}>
-                <option value="all">All tools</option>
-                <option value="allowlist">Allowlist</option>
-                <option value="blocklist">Blocklist</option>
+                <option value="all">全部工具</option>
+                <option value="allowlist">允许列表</option>
+                <option value="blocklist">屏蔽列表</option>
               </select>
             )}
           />
@@ -40,10 +40,10 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
           <div className="mt-2">
             <p className="text-xs text-faint mb-3 flex items-center justify-between">
               {toolMode === "allowlist"
-                ? "Select tools this agent can use:"
-                : "Select tools to block from this agent:"}
+                ? "选择这个智能体可使用的工具："
+                : "选择要屏蔽的工具："}
               <span className="font-mono text-xs font-semibold text-accent px-2 py-0.5 bg-accent-subtle rounded-full">
-                {selectedTools.length} selected
+                已选择 {selectedTools.length} 个
               </span>
             </p>
             {Object.entries(
@@ -101,7 +101,7 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
                   )
                 }
               >
-                Select all
+                全选
               </Button>
               <Button
                 type="button"
@@ -109,7 +109,7 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
                 size="sm"
                 onClick={() => setValue("selectedTools", [])}
               >
-                Clear all
+                清空全部
               </Button>
             </div>
           </div>
@@ -119,7 +119,7 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
       {/* Preloaded Skills */}
       <div className="flex flex-col gap-2.5">
         <h4 className="font-heading text-xs font-semibold uppercase tracking-widest text-accent mb-1 pb-2 border-b border-border">
-          Preloaded Skills
+          预加载技能
           {selectedSkills.length > 0 && (
             <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-[5px] ml-1.5 text-xs font-semibold rounded-[10px] bg-purple text-white align-middle">
               {selectedSkills.length}
@@ -127,15 +127,14 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
           )}
         </h4>
         <p className="text-sm text-faint m-0 mb-2.5 leading-[1.4]">
-          Skills are injected into the agent's system prompt automatically on
-          every turn.
+          技能会在每轮对话中自动注入到智能体的系统提示词。
         </p>
         {availableSkills.length > 0 && (
           <Input
             type="text"
             value={skillSearch}
             onChange={(e) => setSkillSearch(e.target.value)}
-            placeholder="Filter skills..."
+            placeholder="筛选技能..."
             className="mb-2"
           />
         )}
@@ -188,7 +187,7 @@ export function ToolsTab({ form }: { form: UseAgentFormReturn }) {
               );
             })}
           {availableSkills.length === 0 && (
-            <p className="text-faint text-sm m-0">No skills available</p>
+            <p className="text-faint text-sm m-0">暂无可用技能</p>
           )}
         </div>
       </div>

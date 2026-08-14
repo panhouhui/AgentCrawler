@@ -24,10 +24,9 @@ import {
 
 const log = createLogger("core-entry");
 
-const CORE_PORT = 48081;
-
 async function main(): Promise<void> {
   const config = loadConfig();
+  const corePort = config.internalApi.port;
   setProcessName("core");
   setLogLevel(config.logLevel);
 
@@ -59,17 +58,17 @@ async function main(): Promise<void> {
   });
 
   const server = Bun.serve({
-    port: CORE_PORT,
+    port: corePort,
     hostname: config.internalApi.host,
     reusePort: true,
     fetch: internalApp.fetch,
   });
 
-  log.info(`Core internal API: http://${config.internalApi.host}:${CORE_PORT}`);
+  log.info(`Core internal API: http://${config.internalApi.host}:${corePort}`);
 
   const supervisor = createProcessSupervisor("core", {
     type: "core",
-    port: CORE_PORT,
+    port: corePort,
   });
 
   supervisor.onShutdown(async () => {

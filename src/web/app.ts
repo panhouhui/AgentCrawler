@@ -36,6 +36,9 @@ import { createWorkflowRoutes } from "./routes/workflows";
 import { createSigeRoutes } from "./routes/sige";
 import { createPipelineRoutes } from "./routes/pipelines";
 import { createModelRoutingRoutes } from "./routes/model-routing";
+import { createSocialRoutes } from "./routes/social";
+import { createKanPushRoutes } from "./routes/kan-push";
+import { createCrawlerConfigRoutes } from "./routes/crawler-config";
 import { createInternalLlmRoutes } from "./routes/internal-llm";
 import { createConfigSignalsRoutes } from "./routes/config-signals";
 import { createConfigSigeRoutes } from "./routes/config-sige";
@@ -175,6 +178,12 @@ export function createWebApp(deps: WebAppDeps): Hono {
   const agents = createAgentRoutes(deps);
   const cron = createCronRoutes(deps);
   const channels = createChannelRoutes(deps);
+  const social = createSocialRoutes({
+    agentRegistry: deps.agentRegistry,
+    toolRegistry: deps.toolRegistry,
+  });
+  const kanPush = createKanPushRoutes();
+  const crawlerConfig = createCrawlerConfigRoutes();
 
   app.get("/api/logs", async (c) => {
     const limitParam = c.req.query("limit");
@@ -289,6 +298,9 @@ export function createWebApp(deps: WebAppDeps): Hono {
   app.route("/api", agents);
   app.route("/api", cron);
   app.route("/api", channels);
+  app.route("/api", social);
+  app.route("/api", kanPush);
+  app.route("/api", crawlerConfig);
   app.route("/api", createRoutingRulesRoutes(deps));
   app.route("/api/system", systemRoutes);
 

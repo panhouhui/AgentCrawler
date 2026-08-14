@@ -28,9 +28,9 @@ interface SignalsState {
 }
 
 const IMPORTANCE_LABELS: Readonly<Record<ImportanceFloor, string>> = {
-  low: "Low — keep almost everything",
-  medium: "Medium — drop weak signals",
-  high: "High — only strong signals",
+  low: "低：尽量保留",
+  medium: "中：过滤弱信号",
+  high: "高：只保留强信号",
 };
 
 /* ── Restart notice ── */
@@ -38,7 +38,7 @@ function RestartNotice() {
   return (
     <div className="flex items-center gap-1.5 text-xs text-warning bg-warning-subtle px-2 py-1 rounded-md">
       <RotateCw className="w-3 h-3 shrink-0" />
-      <span>Takes effect after restart</span>
+      <span>重启后生效</span>
     </div>
   );
 }
@@ -87,7 +87,7 @@ export default function SignalsSettings() {
         setDraft(res.data.effective);
         setSaved(res.data.effective);
       } catch {
-        if (!cancelled) toastError("Failed to load signals settings.");
+        if (!cancelled) toastError("信号设置加载失败。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -113,9 +113,9 @@ export default function SignalsSettings() {
         body: JSON.stringify(draft),
       });
       setSaved(draft);
-      success("Signals settings saved. Restart to apply.");
+      success("信号设置已保存，重启后生效。");
     } catch {
-      toastError("Failed to save signals settings.");
+      toastError("信号设置保存失败。");
     } finally {
       setSaving(false);
     }
@@ -129,34 +129,34 @@ export default function SignalsSettings() {
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 mb-1">
-            <h3 className="text-sm font-semibold text-strong m-0">Scraped Signals</h3>
+            <h3 className="text-sm font-semibold text-strong m-0">爬虫信号</h3>
             {isDirty && (
               <span className="text-xs font-medium text-warning bg-warning-subtle px-1.5 py-0.5 rounded-full">
-                Unsaved
+                未保存
               </span>
             )}
           </div>
           <p className="text-xs text-muted m-0 leading-relaxed">
-            Faceting, ranking, and retrieval floor for scraped demand signals.
+            配置爬虫信号的分面、排序和检索保留阈值。
           </p>
         </div>
         <RestartNotice />
       </div>
 
       {loading || !draft ? (
-        <p className="text-xs text-muted py-1">Loading…</p>
+        <p className="text-xs text-muted py-1">正在加载...</p>
       ) : (
         <div className="flex flex-col gap-3 ml-[50px]">
           <ToggleRow
-            label="Signal facets"
-            description="Tag scraped signals with structured facets before synthesis."
+            label="信号分面"
+            description="在汇总分析前为爬虫信号生成结构化标签。"
             checked={draft.facets}
             disabled={saving}
             onChange={(v) => update("facets", v)}
           />
           <ToggleRow
-            label="Signal ranking"
-            description="Score, calibrate, and filter signals by importance (needs facets)."
+            label="信号排序"
+            description="按重要性对信号评分、校准并过滤，需要先启用信号分面。"
             checked={draft.ranking}
             disabled={saving}
             onChange={(v) => update("ranking", v)}
@@ -168,10 +168,10 @@ export default function SignalsSettings() {
                 htmlFor={selectId}
                 className="text-xs font-medium text-foreground block"
               >
-                Importance floor
+                重要性阈值
               </label>
               <div className="text-xs text-muted mt-0.5">
-                Minimum importance bucket kept during retrieval.
+                检索时保留的最低重要性等级。
               </div>
             </div>
             <select
@@ -199,7 +199,7 @@ export default function SignalsSettings() {
                 onClick={() => saved && setDraft(saved)}
                 disabled={saving}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 variant="primary"
@@ -208,7 +208,7 @@ export default function SignalsSettings() {
                 disabled={saving}
                 loading={saving}
               >
-                Save
+                保存
               </Button>
             </div>
           )}

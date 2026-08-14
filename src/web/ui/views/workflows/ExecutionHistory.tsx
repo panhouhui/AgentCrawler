@@ -26,16 +26,24 @@ const statusPillStyles: Record<string, string> = {
   cancelled: "bg-bg-3 text-muted",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  pending: "等待中",
+  running: "运行中",
+  completed: "已完成",
+  failed: "失败",
+  cancelled: "已取消",
+};
+
 function formatDuration(startedAt: number | null | undefined, finishedAt: number | null | undefined): string {
   if (!startedAt || !finishedAt) return "—";
   const secs = finishedAt - startedAt;
-  if (secs < 60) return `${secs}s`;
-  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
+  if (secs < 60) return `${secs} 秒`;
+  return `${Math.floor(secs / 60)} 分 ${secs % 60} 秒`;
 }
 
 function formatTimestamp(createdAt: number): string {
   const date = new Date(createdAt * 1000);
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString("zh-CN", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -72,7 +80,7 @@ export function ExecutionHistory({ workflowId, onLoadExecution }: ExecutionHisto
         }
         onLoadExecution(map);
       } catch {
-        // silently fail — the canvas just won't show execution state
+        // 预览模式下忽略历史加载失败。
       } finally {
         setLoadingId(null);
       }
@@ -85,15 +93,15 @@ export function ExecutionHistory({ workflowId, onLoadExecution }: ExecutionHisto
   return (
     <div className="border-t border-border bg-bg-1">
       <div className="px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide">
-        Execution History
+        执行历史
       </div>
 
       {loading && (
-        <div className="px-4 pb-3 text-xs text-muted">Loading...</div>
+        <div className="px-4 pb-3 text-xs text-muted">加载中...</div>
       )}
 
       {!loading && executions.length === 0 && (
-        <div className="px-4 pb-3 text-xs text-muted">No executions yet</div>
+        <div className="px-4 pb-3 text-xs text-muted">暂无执行记录</div>
       )}
 
       {!loading && executions.length > 0 && (
@@ -115,7 +123,7 @@ export function ExecutionHistory({ workflowId, onLoadExecution }: ExecutionHisto
                   statusPillStyles[exec.status] ?? "bg-bg-3 text-muted",
                 )}
               >
-                {exec.status}
+                {STATUS_LABELS[exec.status] ?? exec.status}
               </span>
               <span className="text-muted flex-1 truncate">
                 {formatTimestamp(exec.createdAt)}

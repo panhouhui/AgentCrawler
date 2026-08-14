@@ -1,17 +1,27 @@
 import type { ZodType } from "zod";
 
-const TOKEN_KEY = "opencrow_web_token";
+const TOKEN_KEY = "agenthub_web_token";
+const LEGACY_TOKEN_KEY = "opencrow_web_token";
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) return token;
+  const legacyToken = localStorage.getItem(LEGACY_TOKEN_KEY);
+  if (legacyToken) {
+    localStorage.setItem(TOKEN_KEY, legacyToken);
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+  }
+  return legacyToken;
 }
 
 export function setToken(token: string): void {
   localStorage.setItem(TOKEN_KEY, token);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(LEGACY_TOKEN_KEY);
 }
 
 export function initTokenFromUrl(): void {
@@ -57,7 +67,7 @@ export async function apiFetch<T>(
 
   if (res.status === 401) {
     clearToken();
-    const err: ApiError = { status: 401, message: "Unauthorized" };
+    const err: ApiError = { status: 401, message: "未授权" };
     throw err;
   }
 

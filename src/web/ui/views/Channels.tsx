@@ -38,17 +38,17 @@ interface ChannelsResponse {
 }
 
 const channelStatusMap: Record<string, string> = {
-  Connected: "green",
-  Disabled: "gray",
-  Disconnected: "red",
-  "Not configured": "yellow",
+  已连接: "green",
+  已停用: "gray",
+  未连接: "red",
+  未配置: "yellow",
 };
 
 function getChannelStatus(snapshot: ChannelSnapshot): string {
-  if (!snapshot.enabled) return "Disabled";
-  if (snapshot.connected) return "Connected";
-  if (!snapshot.configured) return "Not configured";
-  return "Disconnected";
+  if (!snapshot.enabled) return "已停用";
+  if (snapshot.connected) return "已连接";
+  if (!snapshot.configured) return "未配置";
+  return "未连接";
 }
 
 function ChannelCard({
@@ -106,7 +106,7 @@ function ChannelCard({
 
       <div className="flex flex-col gap-3 mb-5 text-sm">
         <div className="flex items-center justify-between py-1 border-b border-border">
-          <span className="text-faint text-sm font-medium">Enabled</span>
+          <span className="text-faint text-sm font-medium">启用状态</span>
           <Toggle
             checked={snapshot.enabled}
             onChange={handleToggle}
@@ -115,7 +115,7 @@ function ChannelCard({
         </div>
 
         <div className="flex items-center justify-between py-1 border-b border-border">
-          <span className="text-faint text-sm font-medium">Connected</span>
+          <span className="text-faint text-sm font-medium">连接状态</span>
           <span className="flex items-center gap-3 text-sm">
             <span
               className={cn(
@@ -123,13 +123,13 @@ function ChannelCard({
                 snapshot.connected ? "bg-success" : "bg-danger",
               )}
             />
-            {snapshot.connected ? "Yes" : "No"}
+            {snapshot.connected ? "是" : "否"}
           </span>
         </div>
 
         {snapshot.lastError && (
           <div className="flex items-center justify-between py-1 border-b border-border">
-            <span className="text-faint text-sm font-medium">Error</span>
+            <span className="text-faint text-sm font-medium">错误</span>
             <span className="text-danger text-sm">{snapshot.lastError}</span>
           </div>
         )}
@@ -141,7 +141,7 @@ function ChannelCard({
           size="sm"
           onClick={() => setShowSetup((s) => !s)}
         >
-          {showSetup ? "Hide" : "Configure"}
+          {showSetup ? "收起" : "配置"}
         </Button>
         {snapshot.enabled && snapshot.connected && (
           <Button
@@ -150,7 +150,7 @@ function ChannelCard({
             onClick={handleRestart}
             disabled={actionLoading}
           >
-            Restart
+            重启
           </Button>
         )}
       </div>
@@ -182,7 +182,7 @@ export default function Channels() {
   if (error && !channels) {
     return (
       <EmptyState
-        title="Failed to load channels"
+        title="渠道加载失败"
         description={error}
       />
     );
@@ -195,7 +195,7 @@ export default function Channels() {
   return (
     <div>
       <div className="text-xs font-semibold uppercase tracking-widest text-faint mb-5">
-        Channel Status
+        渠道状态
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
         {(channels ?? []).map((entry) => (

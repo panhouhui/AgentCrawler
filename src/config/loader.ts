@@ -2,6 +2,7 @@ import { opencrowConfigSchema, agentDefinitionSchema, type OpenCrowConfig } from
 import { getAllOverrides, getOverride, type ConfigOverride } from "../store/config-overrides";
 import { getAgentOverrides, type AgentOverride } from "../store/agent-overrides";
 import type { AgentDefinition } from "../agents/types";
+import { AGENT_SEEDS } from "./agent-seeds";
 
 function applyEnvOverrides(config: Record<string, unknown>): Record<string, unknown> {
   const result = { ...config };
@@ -35,6 +36,16 @@ function applyEnvOverrides(config: Record<string, unknown>): Record<string, unkn
     web.port = Number(process.env.OPENCROW_WEB_PORT);
   }
   result.web = web;
+
+  // --- internal API ---
+  const internalApi = { ...((result.internalApi ?? {}) as Record<string, unknown>) };
+  if (process.env.OPENCROW_INTERNAL_API_HOST) {
+    internalApi.host = process.env.OPENCROW_INTERNAL_API_HOST;
+  }
+  if (process.env.OPENCROW_INTERNAL_API_PORT) {
+    internalApi.port = Number(process.env.OPENCROW_INTERNAL_API_PORT);
+  }
+  result.internalApi = internalApi;
 
   // --- postgres ---
   if (process.env.DATABASE_URL) {
@@ -860,7 +871,13 @@ function applyEnvOverrides(config: Record<string, unknown>): Record<string, unkn
 
 export function loadConfig(): OpenCrowConfig {
   const withEnv = applyEnvOverrides({});
-  return opencrowConfigSchema.parse(withEnv);
+  const parsed = opencrowConfigSchema.parse(withEnv);
+  const existingIds = new Set(parsed.agents.map((agent) => agent.id));
+  const seededAgents = AGENT_SEEDS.filter((agent) => !existingIds.has(agent.id));
+  return opencrowConfigSchema.parse({
+    ...parsed,
+    agents: [...parsed.agents, ...seededAgents],
+  });
 }
 
 function mergeChannelOverrides(

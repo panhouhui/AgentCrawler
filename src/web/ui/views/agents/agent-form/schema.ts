@@ -5,7 +5,7 @@ import { z } from "zod";
    =============================================== */
 export const agentFormSchema = z.object({
   id: z.string(),
-  name: z.string().min(1, "Name is required"),
+  name: z.string().min(1, "名称不能为空"),
   description: z.string(),
   provider: z.string(),
   model: z.string(),

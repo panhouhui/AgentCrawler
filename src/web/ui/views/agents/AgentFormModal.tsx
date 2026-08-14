@@ -49,12 +49,12 @@ export function AgentFormModal({
               id="agent-form-title"
               className="font-heading text-lg font-semibold text-strong m-0 tracking-tight"
             >
-              {mode === "create" ? "New Agent" : `Edit ${initial?.name}`}
+              {mode === "create" ? "新建智能体" : `编辑 ${initial?.name}`}
             </h3>
             <p className="text-sm text-faint mt-0.5 m-0">
               {mode === "create"
-                ? "Configure a new AI agent"
-                : "Update agent configuration"}
+                ? "配置新的 AI 智能体"
+                : "更新智能体配置"}
             </p>
           </div>
           <Button
@@ -62,7 +62,7 @@ export function AgentFormModal({
             variant="ghost"
             size="sm"
             onClick={onCancel}
-            aria-label="Close"
+            aria-label="关闭"
           >
             <svg
               width="16"
@@ -92,7 +92,12 @@ export function AgentFormModal({
               )}
               onClick={() => setFormTab(t)}
             >
-              {t === "tools" ? "Tools & Skills" : t.charAt(0).toUpperCase() + t.slice(1)}
+              {{
+                basic: "基础",
+                model: "模型",
+                tools: "工具与技能",
+                advanced: "高级",
+              }[t]}
             </button>
           ))}
         </div>
@@ -114,16 +119,16 @@ export function AgentFormModal({
         {/* Footer */}
         <div className="flex justify-end gap-3 px-6 py-5 border-t border-border shrink-0 bg-bg-1">
           <Button type="button" variant="secondary" size="sm" onClick={onCancel}>
-            Cancel
+            取消
           </Button>
           <Button type="submit" variant="primary" size="sm" loading={isSubmitting}>
             {isSubmitting
               ? mode === "create"
-                ? "Creating..."
-                : "Saving..."
+                ? "创建中..."
+                : "保存中..."
               : mode === "create"
-                ? "Create Agent"
-                : "Save Changes"}
+                ? "创建智能体"
+                : "保存修改"}
           </Button>
         </div>
       </form>

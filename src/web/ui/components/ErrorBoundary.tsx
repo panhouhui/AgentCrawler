@@ -38,10 +38,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
           </div>
           <div>
             <p className="text-base font-semibold text-strong mb-1">
-              Something went wrong
+              页面出错了
             </p>
             <p className="text-sm text-muted max-w-sm">
-              {this.state.error.message || "An unexpected error occurred in this view."}
+              {this.state.error.message || "当前页面发生了意外错误。"}
             </p>
           </div>
           <button
@@ -49,7 +49,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             className="flex items-center gap-2 px-4 py-2 bg-bg-1 border border-border-2 rounded-lg text-sm text-foreground hover:bg-bg-2 transition-colors cursor-pointer"
           >
             <RefreshCw size={14} />
-            Try again
+            重试
           </button>
         </div>
       );

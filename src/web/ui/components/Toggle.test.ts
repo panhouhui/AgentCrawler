@@ -71,12 +71,12 @@ test("Toggle calls onChange with false when currently checked", () => {
   unmount();
 });
 
-test("Toggle text content shows On when checked", () => {
+test("Toggle text content shows enabled label when checked", () => {
   const html = renderHTML(React.createElement(Toggle, { checked: true, onChange: () => {} }));
-  expect(html).toContain("On");
+  expect(html).toContain("开启");
 });
 
-test("Toggle text content shows Off when unchecked", () => {
+test("Toggle text content shows disabled label when unchecked", () => {
   const html = renderHTML(React.createElement(Toggle, { checked: false, onChange: () => {} }));
-  expect(html).toContain("Off");
+  expect(html).toContain("关闭");
 });

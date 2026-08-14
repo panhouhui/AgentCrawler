@@ -26,7 +26,13 @@ export interface GenerateReportParams {
   readonly mem0: Mem0Client
   readonly userId: string
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }
 
 export async function generateReport(
@@ -156,7 +162,13 @@ async function generateExecutiveSummary(params: {
   readonly topScores: readonly FusedScore[]
   readonly topIdeas: readonly ScoredIdea[]
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<string> {
   const { session, topScores, topIdeas, model, provider } = params
 
@@ -199,7 +211,13 @@ async function generateTopIdeasSection(params: {
   readonly topScores: readonly FusedScore[]
   readonly allActions: readonly AgentAction[]
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<string> {
   const { topIdeas, topScores, allActions, model, provider } = params
 
@@ -251,7 +269,13 @@ async function generatePerIdeaAnalysis(params: {
   readonly topScores: readonly FusedScore[]
   readonly allActions: readonly AgentAction[]
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<readonly IdeaAnalysis[]> {
   const { session, topIdeas, topScores, allActions, model, provider } = params
 
@@ -327,7 +351,13 @@ async function generateOpportunityMap(params: {
   readonly mem0: Mem0Client
   readonly userId: string
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<string> {
   const { session, effectiveScores, mem0, userId, model, provider } = params
 
@@ -379,7 +409,13 @@ async function generateRiskAssessment(params: {
   readonly allActions: readonly AgentAction[]
   readonly topScores: readonly FusedScore[]
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<string> {
   const { session, allActions, topScores, model, provider } = params
 
@@ -431,7 +467,13 @@ Write the risk assessment with mitigation strategies.`
 async function generateMetaGameHealthSection(params: {
   readonly session: SigeSession
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<MetaGameHealth> {
   const { session, model, provider } = params
 
@@ -487,7 +529,13 @@ async function generateRecommendedNextSession(params: {
   readonly mem0: Mem0Client
   readonly userId: string
   readonly model: string
-  readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode"
+  readonly provider?:
+    | "openrouter"
+    | "agent-sdk"
+    | "alibaba"
+    | "anthropic"
+    | "minimax"
+    | "opencode"
 }): Promise<string> {
   const { session, topScores, mem0, userId, model, provider } = params
 

@@ -51,11 +51,19 @@ const STEP_LINE_COLORS: Record<StepStatus, string> = {
 };
 
 const STATUS_HEADER: Record<ExecutionStatus, { label: string; color: string; bg: string }> = {
-  pending: { label: "Waiting", color: "text-zinc-400", bg: "bg-zinc-500/10" },
-  running: { label: "Running", color: "text-blue-400", bg: "bg-blue-500/10" },
-  completed: { label: "Completed", color: "text-emerald-400", bg: "bg-emerald-500/10" },
-  failed: { label: "Failed", color: "text-red-400", bg: "bg-red-500/10" },
-  cancelled: { label: "Cancelled", color: "text-zinc-400", bg: "bg-zinc-500/10" },
+  pending: { label: "等待中", color: "text-zinc-400", bg: "bg-zinc-500/10" },
+  running: { label: "运行中", color: "text-blue-400", bg: "bg-blue-500/10" },
+  completed: { label: "已完成", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+  failed: { label: "失败", color: "text-red-400", bg: "bg-red-500/10" },
+  cancelled: { label: "已取消", color: "text-zinc-400", bg: "bg-zinc-500/10" },
+};
+
+const STEP_LABELS: Record<StepStatus, string> = {
+  pending: "等待中",
+  running: "运行中",
+  completed: "已完成",
+  failed: "失败",
+  skipped: "已跳过",
 };
 
 function formatOutput(output: unknown): string {
@@ -170,7 +178,7 @@ function StepRow({
             type="button"
             onClick={handleNodeClick}
             className="text-sm font-medium text-foreground truncate hover:text-strong transition-colors cursor-pointer text-left"
-            title="Click to highlight node"
+            title="点击高亮节点"
           >
             {label}
           </button>
@@ -184,14 +192,14 @@ function StepRow({
               step.status === "skipped" && "text-zinc-500",
             )}
           >
-            {step.status}
+            {STEP_LABELS[step.status] ?? step.status}
           </span>
           {isExpandable && (
             <button
               type="button"
               onClick={handleToggle}
               className="text-muted shrink-0 hover:text-foreground transition-colors cursor-pointer"
-              aria-label={expanded ? "Collapse step output" : "Expand step output"}
+              aria-label={expanded ? "收起步骤输出" : "展开步骤输出"}
             >
               {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </button>
@@ -203,7 +211,7 @@ function StepRow({
             {hasError && (
               <div className="p-3 rounded-lg bg-red-500/8 border border-red-500/20">
                 <p className="text-[11px] text-red-400 font-semibold mb-1 uppercase tracking-wider">
-                  Error
+                  错误
                 </p>
                 <p className="text-xs text-red-300/90 font-mono break-words leading-relaxed">
                   {step.error}
@@ -213,7 +221,7 @@ function StepRow({
             {hasOutput && (
               <div>
                 <p className="text-[11px] text-muted font-semibold mb-1.5 uppercase tracking-wider">
-                  {hasError ? "Partial Output" : "Output"}
+                  {hasError ? "部分输出" : "输出"}
                 </p>
                 <pre className="text-xs font-mono text-foreground/80 bg-black/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-words border border-white/5 max-h-[200px] overflow-y-auto leading-relaxed">
                   {formatOutput(step.output)}
@@ -284,7 +292,7 @@ export function ExecutionPanel({
             type="button"
             onClick={() => setMinimized(false)}
             className="flex items-center gap-2 text-xs text-muted hover:text-foreground transition-colors cursor-pointer"
-            aria-label="Expand execution panel"
+            aria-label="展开执行面板"
           >
             <Maximize2 size={12} />
           </button>
@@ -306,7 +314,7 @@ export function ExecutionPanel({
 
           {totalCount > 0 && (
             <span className="text-xs text-muted">
-              {completedCount}/{totalCount} steps
+              {completedCount}/{totalCount} 个步骤
             </span>
           )}
 
@@ -329,7 +337,7 @@ export function ExecutionPanel({
             type="button"
             onClick={onClose}
             className="ml-auto w-5 h-5 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
-            aria-label="Close execution panel"
+            aria-label="关闭执行面板"
           >
             <X size={12} />
           </button>
@@ -371,7 +379,7 @@ export function ExecutionPanel({
           {totalCount > 0 && (
             <>
               <span className="text-xs text-muted">
-                {completedCount} of {totalCount} steps
+                {completedCount} / {totalCount} 个步骤
               </span>
 
               {/* Progress bar */}
@@ -399,7 +407,7 @@ export function ExecutionPanel({
             type="button"
             onClick={() => setMinimized(true)}
             className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
-            aria-label="Minimize execution panel"
+            aria-label="最小化执行面板"
           >
             <Minimize2 size={13} />
           </button>
@@ -407,7 +415,7 @@ export function ExecutionPanel({
             type="button"
             onClick={onClose}
             className="w-6 h-6 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
-            aria-label="Close execution panel"
+            aria-label="关闭执行面板"
           >
             <X size={13} />
           </button>
@@ -424,7 +432,7 @@ export function ExecutionPanel({
           <div className="flex items-center justify-center h-full py-8">
             <div className="text-center">
               <Loader2 size={20} className="text-blue-400 animate-spin mx-auto mb-2" />
-              <p className="text-xs text-muted">Initializing execution...</p>
+              <p className="text-xs text-muted">正在初始化执行...</p>
             </div>
           </div>
         )}

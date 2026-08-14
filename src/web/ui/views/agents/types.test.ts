@@ -7,8 +7,8 @@ test("providerLabel returns 'Agent SDK' for agent-sdk", () => {
   expect(providerLabel("agent-sdk")).toBe("Agent SDK");
 });
 
-test("providerLabel returns 'Alibaba' for alibaba", () => {
-  expect(providerLabel("alibaba")).toBe("Alibaba");
+test("providerLabel returns Chinese label for alibaba", () => {
+  expect(providerLabel("alibaba")).toBe("阿里云");
 });
 
 test("providerLabel returns 'OpenRouter' for openrouter", () => {
@@ -17,6 +17,10 @@ test("providerLabel returns 'OpenRouter' for openrouter", () => {
 
 test("providerLabel returns 'OpenCode Zen' for opencode", () => {
   expect(providerLabel("opencode")).toBe("OpenCode Zen");
+});
+
+test("providerLabel returns 'MiniMax' for minimax", () => {
+  expect(providerLabel("minimax")).toBe("MiniMax");
 });
 
 /* ---------- getInitials ---------- */
@@ -43,8 +47,8 @@ test("getInitials handles lowercase", () => {
 
 /* ---------- shortModel ---------- */
 
-test("shortModel returns 'Default' for empty string", () => {
-  expect(shortModel("")).toBe("Default");
+test("shortModel returns Chinese default label for empty string", () => {
+  expect(shortModel("")).toBe("默认");
 });
 
 test("shortModel returns last segment of slash-separated model", () => {

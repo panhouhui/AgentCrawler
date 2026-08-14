@@ -44,12 +44,12 @@ type SourceFilter =
   | "investing_calendar";
 
 const ALL_SOURCE_TABS: { id: SourceFilter; label: string; scraperId: string }[] = [
-  { id: "all", label: "All", scraperId: "" },
+  { id: "all", label: "全部", scraperId: "" },
   { id: "cryptopanic", label: "CryptoPanic", scraperId: "cryptopanic" },
   { id: "cointelegraph", label: "CoinTelegraph", scraperId: "cointelegraph" },
   { id: "reuters", label: "Reuters", scraperId: "reuters" },
   { id: "investing_news", label: "Investing", scraperId: "investing_news" },
-  { id: "investing_calendar", label: "Calendar", scraperId: "investing_calendar" },
+  { id: "investing_calendar", label: "经济日历", scraperId: "investing_calendar" },
 ];
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -83,21 +83,45 @@ interface FieldDef {
 
 const SOURCE_CONFIG_FIELDS: Record<string, readonly FieldDef[]> = {
   cryptopanic: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 15 },
+    { key: "intervalMinutes", label: "抓取间隔（分钟）", description: "多久抓取一次", min: 5, max: 1440, defaultValue: 15 },
   ],
   cointelegraph: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 30 },
+    { key: "intervalMinutes", label: "抓取间隔（分钟）", description: "多久抓取一次", min: 10, max: 1440, defaultValue: 30 },
   ],
   reuters: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
+    { key: "intervalMinutes", label: "抓取间隔（分钟）", description: "多久抓取一次", min: 10, max: 1440, defaultValue: 60 },
   ],
   investing_news: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 60 },
+    { key: "intervalMinutes", label: "抓取间隔（分钟）", description: "多久抓取一次", min: 10, max: 1440, defaultValue: 60 },
   ],
   investing_calendar: [
-    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 30, max: 1440, defaultValue: 120 },
+    { key: "intervalMinutes", label: "抓取间隔（分钟）", description: "多久抓取一次", min: 30, max: 1440, defaultValue: 120 },
   ],
 };
+
+const SENTIMENT_LABELS: Record<string, string> = {
+  positive: "正向",
+  negative: "负向",
+  neutral: "中性",
+};
+
+const IMPORTANCE_LABELS: Record<string, string> = {
+  high: "高",
+  medium: "中",
+  low: "低",
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  cryptopanic: "CryptoPanic",
+  cointelegraph: "CoinTelegraph",
+  reuters: "Reuters",
+  investing_news: "Investing 新闻",
+  investing_calendar: "经济日历",
+};
+
+function sourceLabel(sourceName: string): string {
+  return SOURCE_LABELS[sourceName] ?? sourceName.replace("_", " ");
+}
 
 function getDefaults(scraperId: string): Record<string, number> {
   const fields = SOURCE_CONFIG_FIELDS[scraperId] ?? [];
@@ -184,7 +208,7 @@ function SourceConfigPanel({ scraperId }: { readonly scraperId: string }) {
         disabled={saving}
         loading={saving}
       >
-        {saved ? "Saved" : "Save"}
+        {saved ? "已保存" : "保存"}
       </Button>
     </div>
   );
@@ -304,10 +328,10 @@ export default function News() {
         { method: "POST", body: JSON.stringify({ source: sourceFilter }) },
       );
       if (res.success) {
-        setBackfillResult(`Indexed ${res.data.indexed} articles`);
+        setBackfillResult(`已索引 ${res.data.indexed} 篇文章`);
       }
     } catch (err) {
-      let message = "Unknown error";
+      let message = "未知错误";
       if (err && typeof err === "object" && "message" in err) {
         const raw = String((err as { message: string }).message);
         try {
@@ -317,7 +341,7 @@ export default function News() {
           message = raw;
         }
       }
-      setBackfillResult(`Backfill failed: ${message}`);
+      setBackfillResult(`补写 RAG 失败：${message}`);
     } finally {
       setBackfilling(false);
     }
@@ -328,14 +352,14 @@ export default function News() {
   }
 
   if (loading) {
-    return <LoadingState message="Loading..." />;
+    return <LoadingState message="加载中..." />;
   }
 
   return (
     <div>
       {/* Header */}
       <PageHeader
-        title="News"
+        title="新闻源"
         count={totalArticles()}
         actions={
           sourceFilter !== "all" ? (
@@ -349,7 +373,7 @@ export default function News() {
                 onClick={handleBackfillRag}
                 loading={backfilling}
               >
-                Backfill RAG
+                补写 RAG
               </Button>
               <Button
                 size="sm"
@@ -357,7 +381,7 @@ export default function News() {
                 loading={scrapingSource === sourceFilter}
                 disabled={scrapingSource !== null}
               >
-                Scrape{" "}
+                抓取{" "}
                 {ALL_SOURCE_TABS.find((t) => t.id === sourceFilter)?.label ?? ""}
               </Button>
             </div>
@@ -366,7 +390,7 @@ export default function News() {
       />
 
       {/* Source Filter Tabs — only enabled sources */}
-      <div className="flex gap-1.5 flex-wrap mb-5" role="tablist" aria-label="News sources">
+      <div className="flex gap-1.5 flex-wrap mb-5" role="tablist" aria-label="新闻源">
         {visibleTabs.map((t) => {
           const isActive = sourceFilter === t.id;
           return (
@@ -428,7 +452,7 @@ export default function News() {
                 <span className="font-mono font-semibold text-muted">
                   {s.count}
                 </span>
-                {s.source_name.replace("_", " ")}
+                {sourceLabel(s.source_name)}
                 <span className="text-faint text-xs">
                   ({relativeTime(s.latest_at)})
                 </span>
@@ -441,7 +465,7 @@ export default function News() {
       {/* Calendar View */}
       {isCalendar ? (
         calendarEvents.length === 0 ? (
-          <EmptyState description='No calendar events yet. Click "Scrape" to fetch.' />
+          <EmptyState description="暂无经济日历事件。点击“抓取”获取数据。" />
         ) : (
           <table
             className="w-full border-separate"
@@ -450,25 +474,25 @@ export default function News() {
             <thead>
               <tr>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Event
+                  事件
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Country
+                  国家/地区
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Importance
+                  重要性
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Date/Time
+                  日期/时间
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Actual
+                  实际值
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Forecast
+                  预测值
                 </th>
                 <th className="text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-widest text-faint border-b border-border">
-                  Previous
+                  前值
                 </th>
               </tr>
             </thead>
@@ -491,7 +515,7 @@ export default function News() {
                           importanceClasses.medium,
                       )}
                     >
-                      {ev.importance || "medium"}
+                      {IMPORTANCE_LABELS[ev.importance || "medium"] ?? ev.importance ?? "中"}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 bg-bg-1 text-sm text-muted">
@@ -515,7 +539,7 @@ export default function News() {
         /* Article List */
         <>
           {articles.length === 0 ? (
-            <EmptyState description='No articles yet. Click a source tab and "Scrape" to fetch.' />
+            <EmptyState description="暂无文章。请选择一个来源并点击“抓取”获取数据。" />
           ) : (
             <div className="flex flex-col gap-0.5">
               {articles.map((a) => {
@@ -552,7 +576,7 @@ export default function News() {
                             border: `1px solid ${color}40`,
                           }}
                         >
-                          {a.source_name.replace("_", " ")}
+                          {sourceLabel(a.source_name)}
                         </span>
                         {a.sentiment && (
                           <span
@@ -562,7 +586,7 @@ export default function News() {
                                 sentimentClasses.neutral,
                             )}
                           >
-                            {a.sentiment}
+                            {SENTIMENT_LABELS[a.sentiment.toLowerCase()] ?? a.sentiment}
                           </span>
                         )}
                         {currencies.length > 0 && (

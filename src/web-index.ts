@@ -1,4 +1,7 @@
+import { mkdir } from "node:fs/promises";
+import { extname, join, resolve } from "node:path";
 import { loadConfig } from "./config/loader";
+import { loadMiniMaxModelEnv } from "./config/model-env";
 import { bootstrap } from "./process/bootstrap";
 import { getDb } from "./store/db";
 import { createCoreClient, type CoreClient } from "./web/core-client";
@@ -24,19 +27,99 @@ import {
   setProcessName,
   startLogPersistence,
 } from "./logger";
-import uiHtml from "./web/ui/index.html";
 // @ts-ignore — Bun file import
-import logoFile from "./web/opencrow.png" with { type: "file" };
+import logoFile from "./web/agenthub-mark.png" with { type: "file" };
 // @ts-ignore — Bun file import
-import faviconFile from "./web/favicon.ico" with { type: "file" };
+import faviconFile from "./web/agenthub-mark.png" with { type: "file" };
 
 const log = createLogger("web-main");
+const ROOT_DIR = resolve(import.meta.dir, "..");
+const UI_DIR = join(import.meta.dir, "web", "ui");
+const WEB_ASSETS_DIR = join(ROOT_DIR, ".runtime", "web-assets");
+let webAssetVersion = Date.now().toString(36);
+
+async function buildWebBundle(): Promise<void> {
+  await mkdir(WEB_ASSETS_DIR, { recursive: true });
+  const result = await Bun.build({
+    entrypoints: [join(UI_DIR, "app.tsx")],
+    outdir: WEB_ASSETS_DIR,
+    target: "browser",
+    sourcemap: process.env.NODE_ENV === "production" ? "none" : "external",
+  });
+
+  if (!result.success) {
+    const logs = result.logs.map((entry) => entry.message).join("\n");
+    throw new Error(`Frontend bundle failed:\n${logs}`);
+  }
+  webAssetVersion = `${Date.now().toString(36)}-${Bun.hash(
+    result.outputs.map((output) => output.path).join("|"),
+  ).toString(36)}`;
+}
+
+function contentTypeFor(path: string): string {
+  const ext = extname(path).toLowerCase();
+  if (ext === ".js") return "application/javascript";
+  if (ext === ".css") return "text/css";
+  if (ext === ".map") return "application/json";
+  if (ext === ".png") return "image/png";
+  if (ext === ".ico") return "image/x-icon";
+  if (ext === ".html") return "text/html";
+  return "application/octet-stream";
+}
+
+function safeAssetPath(pathname: string): string | null {
+  const base = resolve(WEB_ASSETS_DIR);
+  const resolved = resolve(base, pathname.replace(/^\/+/, ""));
+  if (resolved === base || resolved.startsWith(`${base}\\`)) return resolved;
+  return null;
+}
+
+function webIndexHtml(): Response {
+  return new Response(
+    `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentHub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script>(function(){var t=localStorage.getItem('agenthub-theme')||localStorage.getItem('opencrow-theme');if(t)document.documentElement.setAttribute('data-theme',t);})()</script>
+  <link rel="icon" type="image/png" href="/favicon.ico?v=agenthub">
+  <link rel="stylesheet" href="/tailwind-out.css?v=${webAssetVersion}">
+  <link rel="stylesheet" href="/style.css?v=${webAssetVersion}">
+  <link rel="stylesheet" href="/assets/app.css?v=${webAssetVersion}">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/assets/app.js?v=${webAssetVersion}"></script>
+</body>
+</html>`,
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    },
+  );
+}
+
+function assetCacheControl(): string {
+  return process.env.NODE_ENV === "production"
+    ? "public, max-age=31536000, immutable"
+    : "no-store";
+}
 
 async function main(): Promise<void> {
+  loadMiniMaxModelEnv();
   const config = loadConfig();
   setProcessName("web");
   setLogLevel(config.logLevel);
-  log.info("Starting OpenCrow web process...");
+  log.info("Starting AgentHub web process...");
+  await buildWebBundle();
+  log.info("Frontend bundle built", { outdir: WEB_ASSETS_DIR });
 
   // Bootstrap full agent capabilities (handles DB init, agent registry, tool registry, memory)
   const ctx = await bootstrap({
@@ -185,6 +268,7 @@ async function main(): Promise<void> {
   Bun.serve<WsData>({
     port: config.web.port,
     hostname: config.web.host,
+    idleTimeout: 120,
     // reusePort intentionally OFF. With SO_REUSEPORT, a stale/orphaned web child
     // (e.g. one that outlived a SIGKILLed core) keeps binding the same port and
     // the kernel round-robins connections across live AND zombie listeners —
@@ -201,7 +285,6 @@ async function main(): Promise<void> {
         ? false
         : { hmr: true, console: true },
     routes: {
-      "/": uiHtml,
       "/logo.png": new Response(Bun.file(logoFile), {
         headers: {
           "Content-Type": "image/png",
@@ -210,13 +293,17 @@ async function main(): Promise<void> {
       }),
       "/favicon.ico": new Response(Bun.file(faviconFile), {
         headers: {
-          "Content-Type": "image/x-icon",
-          "Cache-Control": "public, max-age=86400",
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=60",
         },
       }),
     },
     async fetch(req, bunServer) {
       const url = new URL(req.url);
+
+      if (url.pathname === "/" || url.pathname === "/index.html") {
+        return webIndexHtml();
+      }
 
       // Serve CSS files dynamically (tailwind-out.css is a build artifact)
       if (url.pathname === "/tailwind-out.css" || url.pathname === "/style.css") {
@@ -225,6 +312,17 @@ async function main(): Promise<void> {
           headers: {
             "Content-Type": "text/css",
             "Cache-Control": "public, max-age=60",
+          },
+        });
+      }
+
+      if (url.pathname.startsWith("/assets/")) {
+        const assetPath = safeAssetPath(url.pathname.slice("/assets/".length));
+        if (!assetPath) return new Response("Invalid asset path", { status: 400 });
+        return new Response(Bun.file(assetPath), {
+          headers: {
+            "Content-Type": contentTypeFor(assetPath),
+            "Cache-Control": assetCacheControl(),
           },
         });
       }
@@ -378,7 +476,7 @@ async function main(): Promise<void> {
     });
   }
 
-  log.info(`OpenCrow web: http://${config.web.host}:${config.web.port}`);
+  log.info(`AgentHub web: http://${config.web.host}:${config.web.port}`);
 
   // Broadcast system status to WS clients (replaces per-client HTTP polling)
   let lastStatusJson = "";
@@ -437,6 +535,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  log.error("Failed to start OpenCrow web", err);
+  log.error("Failed to start AgentHub web", err);
   process.exit(1);
 });

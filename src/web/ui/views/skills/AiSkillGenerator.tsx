@@ -13,12 +13,12 @@ interface AiSkillGeneratorProps {
 type GeneratorState = "idle" | "generating" | "done" | "error";
 
 const PROMPT_SUGGESTIONS = [
-  "A skill for writing technical blog posts with SEO optimization",
-  "A skill for debugging production issues systematically",
-  "A skill for conducting user interviews and synthesizing feedback",
-  "A skill for designing database schemas from requirements",
-  "A skill for writing unit tests following TDD methodology",
-  "A skill for creating social media content calendars",
+  "用于撰写兼顾 SEO 的技术博客文章",
+  "用于系统化排查生产环境问题",
+  "用于开展用户访谈并总结反馈",
+  "用于根据需求设计数据库结构",
+  "用于按照 TDD 方法编写单元测试",
+  "用于创建社交媒体内容日历",
 ] as const;
 
 function parseGeneratedSkill(text: string): SkillFormData | null {
@@ -82,7 +82,7 @@ async function consumeSseStream(
           }
 
           if (event.type === "error") {
-            return { error: event.message ?? "Generation failed" };
+            return { error: event.message ?? "生成失败" };
           }
 
           if (event.type === "done") {
@@ -99,7 +99,7 @@ async function consumeSseStream(
 
   return accumulated
     ? { text: accumulated }
-    : { error: "No response received" };
+    : { error: "未收到响应" };
 }
 
 export function AiSkillGenerator({
@@ -166,14 +166,14 @@ export function AiSkillGenerator({
       });
 
       if (!res.ok) {
-        setErrorMsg("Generation request failed. Please try again.");
+        setErrorMsg("生成请求失败，请重试。");
         setState("error");
         return;
       }
 
       const reader = res.body?.getReader();
       if (!reader) {
-        setErrorMsg("No response stream");
+        setErrorMsg("没有响应流");
         setState("error");
         return;
       }
@@ -193,7 +193,7 @@ export function AiSkillGenerator({
         setState("done");
       } else {
         setErrorMsg(
-          "Could not parse the generated skill. Try again with a more specific prompt.",
+          "无法解析生成的技能。请换一个更具体的描述后重试。",
         );
         setState("error");
       }
@@ -203,7 +203,7 @@ export function AiSkillGenerator({
         setState("idle");
         return;
       }
-      setErrorMsg("Generation failed. Please try again.");
+      setErrorMsg("生成失败，请重试。");
       setState("error");
     }
   }, [prompt, reset]);
@@ -219,7 +219,7 @@ export function AiSkillGenerator({
     <Modal
       open={open}
       onClose={handleClose}
-      title="AI Skill Generator"
+      title="AI 技能生成器"
       width="680px"
     >
       <div className="flex flex-col gap-5">
@@ -229,12 +229,12 @@ export function AiSkillGenerator({
             className="block text-sm font-semibold text-muted uppercase tracking-wide mb-2"
             htmlFor="ai-prompt"
           >
-            Describe the skill you want
+            描述你想要的技能
           </label>
           <textarea
             id="ai-prompt"
             className="w-full px-4 py-3 bg-bg border border-border-2 rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent placeholder:text-faint resize-y leading-relaxed min-h-[80px]"
-            placeholder="e.g. A skill for reviewing pull requests with focus on security and performance..."
+            placeholder="例如：一个专注安全和性能的 PR 审查技能..."
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             disabled={state === "generating"}
@@ -244,7 +244,7 @@ export function AiSkillGenerator({
         {/* Suggestion chips */}
         {state === "idle" && !prompt && (
           <div>
-            <p className="text-xs text-faint mb-2">Try one of these:</p>
+            <p className="text-xs text-faint mb-2">可以试试这些：</p>
             <div className="flex flex-wrap gap-2">
               {PROMPT_SUGGESTIONS.map((s) => (
                 <button
@@ -268,7 +268,7 @@ export function AiSkillGenerator({
                 <>
                   <span className="w-4 h-4 border-2 border-accent/30 border-t-accent rounded-full animate-spin" />
                   <span className="text-sm text-accent font-medium">
-                    Generating skill...
+                    正在生成技能...
                   </span>
                 </>
               )}
@@ -276,7 +276,7 @@ export function AiSkillGenerator({
                 <>
                   <Check size={16} className="text-success" />
                   <span className="text-sm text-success font-medium">
-                    Skill generated
+                    技能已生成
                   </span>
                 </>
               )}
@@ -286,13 +286,13 @@ export function AiSkillGenerator({
               <div className="bg-bg rounded-lg border border-border-2 p-4 space-y-3">
                 <div>
                   <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-                    Name
+                    名称
                   </span>
                   <p className="text-sm text-strong mt-0.5">{parsedSkill.name}</p>
                 </div>
                 <div>
                   <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-                    Description
+                    描述
                   </span>
                   <p className="text-sm text-muted mt-0.5">
                     {parsedSkill.description}
@@ -300,7 +300,7 @@ export function AiSkillGenerator({
                 </div>
                 <div>
                   <span className="text-xs font-semibold text-muted uppercase tracking-wide">
-                    Content Preview
+                    内容预览
                   </span>
                   <div className="mt-1 bg-bg-2 rounded-md p-3 text-xs font-mono text-foreground whitespace-pre-wrap leading-relaxed max-h-[200px] overflow-y-auto">
                     {parsedSkill.content}
@@ -309,7 +309,7 @@ export function AiSkillGenerator({
               </div>
             ) : (
               <div className="bg-bg rounded-lg border border-border-2 p-4 text-xs font-mono text-foreground/70 whitespace-pre-wrap leading-relaxed max-h-[250px] overflow-y-auto">
-                {streamedText || "Waiting for response..."}
+                {streamedText || "等待响应..."}
               </div>
             )}
           </div>
@@ -332,18 +332,18 @@ export function AiSkillGenerator({
                 onClick={() => reset()}
               >
                 <Wand2 size={14} />
-                Try Again
+                重试
               </Button>
             )}
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={handleClose}>
-              Cancel
+              取消
             </Button>
             {state === "generating" && (
               <Button variant="danger" onClick={handleStop}>
                 <StopCircle size={14} />
-                Stop
+                停止
               </Button>
             )}
             {state === "idle" && (
@@ -352,13 +352,13 @@ export function AiSkillGenerator({
                 disabled={!prompt.trim()}
               >
                 <Sparkles size={14} />
-                Generate
+                生成
               </Button>
             )}
             {state === "done" && parsedSkill && (
               <Button onClick={handleUseSkill}>
                 <Check size={14} />
-                Use This Skill
+                使用这个技能
               </Button>
             )}
             {state === "error" && (
@@ -367,7 +367,7 @@ export function AiSkillGenerator({
                 disabled={!prompt.trim()}
               >
                 <Sparkles size={14} />
-                Retry
+                重试
               </Button>
             )}
           </div>

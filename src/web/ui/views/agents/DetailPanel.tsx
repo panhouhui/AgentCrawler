@@ -12,21 +12,21 @@ import { Button } from "../../components";
 
 /* ───── Category labels ───── */
 const CATEGORY_LABELS: Record<string, string> = {
-  core: "Core",
-  skills: "Skills",
-  agents: "Agents",
-  scheduling: "Scheduling",
-  memory: "Memory",
-  news: "News & Content",
+  core: "核心",
+  skills: "技能",
+  agents: "智能体",
+  scheduling: "调度",
+  memory: "记忆",
+  news: "新闻与内容",
   product_hunt: "Product Hunt",
   hacker_news: "Hacker News",
   reddit: "Reddit",
   x_timeline: "X / Twitter",
-  search: "Cross-Source",
-  ideas: "Ideas",
-  observability: "Observability",
-  development: "Development",
-  system: "System",
+  search: "跨来源",
+  ideas: "创意",
+  observability: "可观测性",
+  development: "开发",
+  system: "系统",
 };
 
 function ToolList({ tools }: { tools: readonly ToolInfo[] }) {
@@ -75,6 +75,7 @@ const AVATAR_STYLE: Record<string, string> = {
   anthropic: "bg-accent-subtle text-accent border border-accent-subtle",
   openrouter: "bg-blue-400/10 text-blue-400 border border-blue-400/10",
   alibaba: "bg-orange-400/10 text-orange-400 border border-orange-400/10",
+  minimax: "bg-pink-400/10 text-pink-400 border border-pink-400/10",
 };
 
 const PROV_COLOR: Record<string, string> = {
@@ -82,6 +83,7 @@ const PROV_COLOR: Record<string, string> = {
   anthropic: "text-accent",
   openrouter: "text-blue-400",
   alibaba: "text-orange-400",
+  minimax: "text-pink-400",
 };
 
 /* ===============================================
@@ -154,7 +156,7 @@ export function DetailPanel({
             size="sm"
             className="absolute top-4 right-4 z-[1]"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="关闭"
           >
             <svg
               width="16"
@@ -183,7 +185,7 @@ export function DetailPanel({
                 {agent.name}
                 {agent.isDefault && (
                   <span className="inline-flex items-center px-2 py-px rounded-full bg-accent-subtle text-[0.65rem] font-semibold text-accent tracking-wide uppercase shrink-0">
-                    Default
+                    默认
                   </span>
                 )}
               </h3>
@@ -204,19 +206,19 @@ export function DetailPanel({
           {loading ? (
             <div className="flex flex-col items-center justify-center gap-4 py-12 text-faint text-sm">
               <span className="w-4.5 h-4.5 border-2 border-border-2 border-t-accent rounded-full animate-spin inline-block" />
-              <span>Loading details...</span>
+              <span>正在加载详情...</span>
             </div>
           ) : detail ? (
             <>
               {/* Model Config Section */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  Model Configuration
+                  模型配置
                 </h4>
                 <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Provider
+                      服务商
                     </span>
                     <span
                       className={cn(
@@ -229,16 +231,16 @@ export function DetailPanel({
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Model
+                      模型
                     </span>
                     <span className="text-sm text-foreground break-words font-mono">
-                      {detail.model || "Default"}
+                      {detail.model || "默认"}
                     </span>
                   </div>
                   {detail.maxIterations != null && (
                     <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                       <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                        Max Iterations
+                        最大迭代次数
                       </span>
                       <span className="text-sm text-foreground break-words">
                         {detail.maxIterations}
@@ -249,7 +251,7 @@ export function DetailPanel({
                     <>
                       <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                         <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                          Thinking Mode
+                          思考模式
                         </span>
                         <span className="text-sm text-foreground break-words capitalize">
                           {detail.modelParams?.thinkingMode ?? (detail.reasoning ? "adaptive" : "disabled")}
@@ -260,7 +262,7 @@ export function DetailPanel({
                       </div>
                       <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                         <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                          Effort
+                          推理强度
                         </span>
                         <span className="text-sm text-foreground break-words capitalize">
                           {detail.modelParams?.effort ?? "high"}
@@ -270,7 +272,7 @@ export function DetailPanel({
                   )}
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Stateless
+                      无状态
                     </span>
                     <span
                       className={cn(
@@ -280,13 +282,13 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.stateless ? "Yes" : "No"}
+                      {detail.stateless ? "是" : "否"}
                     </span>
                   </div>
                   {detail.maxInputLength != null && (
                     <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                       <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                        Max Input Length
+                      最大输入长度
                       </span>
                       <span className="text-sm text-foreground break-words">
                         {detail.maxInputLength.toLocaleString()}
@@ -299,7 +301,7 @@ export function DetailPanel({
               {/* System Prompt */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  System Prompt
+                  系统提示词
                 </h4>
                 {detail.systemPrompt ? (
                   <div className="p-4 bg-bg-2 border border-border rounded-lg font-mono text-xs text-muted whitespace-pre-wrap break-words max-h-[240px] overflow-y-auto leading-relaxed">
@@ -307,7 +309,7 @@ export function DetailPanel({
                   </div>
                 ) : (
                   <p className="text-faint text-sm m-0">
-                    No system prompt configured
+                    未配置系统提示词
                   </p>
                 )}
               </div>
@@ -315,11 +317,11 @@ export function DetailPanel({
               {/* Tool Filter */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  Tool Access
+                  工具权限
                   <span className="ml-auto font-mono text-[0.65rem] text-faint font-normal normal-case tracking-normal">
                     {detail.toolFilter.mode === "all"
-                      ? `${allTools.length} tools`
-                      : `${detail.toolFilter.tools.length} ${detail.toolFilter.mode === "allowlist" ? "allowed" : "blocked"}`}
+                      ? `${allTools.length} 个工具`
+                      : `${detail.toolFilter.tools.length} ${detail.toolFilter.mode === "allowlist" ? "个已允许" : "个已屏蔽"}`}
                   </span>
                 </h4>
                 {detail.toolFilter.mode === "all" ? (
@@ -327,16 +329,16 @@ export function DetailPanel({
                     <ToolList tools={allTools} />
                   ) : (
                     <p className="text-faint text-sm m-0">
-                      All tools available
+                      所有工具均可用
                     </p>
                   )
                 ) : (
                   <>
                     <p className="text-faint text-sm m-0">
                       {detail.toolFilter.mode === "allowlist"
-                        ? "Allowed"
-                        : "Blocked"}{" "}
-                      tools:
+                        ? "已允许"
+                        : "已屏蔽"}{" "}
+                      的工具：
                     </p>
                     <ToolList
                       tools={detail.toolFilter.tools.map((name) => {
@@ -355,20 +357,20 @@ export function DetailPanel({
               {/* Sub-Agents */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  Sub-Agents
+                  子智能体
                 </h4>
                 <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Allowed
+                      允许范围
                     </span>
                     <span className="text-sm text-foreground break-words">
-                      {detail.subagents.allowAgents.join(", ") || "None"}
+                      {detail.subagents.allowAgents.join(", ") || "无"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Max Children
+                      最大子智能体数
                     </span>
                     <span className="text-sm text-foreground break-words">
                       {detail.subagents.maxChildren}
@@ -380,7 +382,7 @@ export function DetailPanel({
               {/* MCP Servers */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  MCP Servers
+                  MCP 服务器
                 </h4>
                 <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -395,7 +397,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.browser ? "Enabled" : "Off"}
+                      {detail.mcpServers?.browser ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -410,7 +412,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.github ? "Enabled" : "Off"}
+                      {detail.mcpServers?.github ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -425,7 +427,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.context7 ? "Enabled" : "Off"}
+                      {detail.mcpServers?.context7 ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -441,8 +443,8 @@ export function DetailPanel({
                       )}
                     >
                       {detail.mcpServers?.sequentialThinking
-                        ? "Enabled"
-                        : "Off"}
+                        ? "已启用"
+                        : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -457,7 +459,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.dbhub ? "Enabled" : "Off"}
+                      {detail.mcpServers?.dbhub ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -472,7 +474,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.filesystem ? "Enabled" : "Off"}
+                      {detail.mcpServers?.filesystem ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -487,7 +489,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.git ? "Enabled" : "Off"}
+                      {detail.mcpServers?.git ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -502,7 +504,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.qdrant ? "Enabled" : "Off"}
+                      {detail.mcpServers?.qdrant ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -517,7 +519,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.braveSearch ? "Enabled" : "Off"}
+                      {detail.mcpServers?.braveSearch ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
@@ -532,7 +534,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.firecrawl ? "Enabled" : "Off"}
+                      {detail.mcpServers?.firecrawl ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 rounded-lg bg-bg-raised p-2.5 border border-border">
@@ -547,7 +549,7 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.mcpServers?.serena ? "Enabled" : "Off"}
+                      {detail.mcpServers?.serena ? "已启用" : "关闭"}
                     </span>
                   </div>
                 </div>
@@ -556,12 +558,12 @@ export function DetailPanel({
               {/* Hooks */}
               <div className="flex flex-col gap-3">
                 <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                  Hooks
+                  钩子
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1 rounded-lg bg-bg-raised p-2.5 border border-border">
                     <span className="text-xs font-semibold text-faint uppercase tracking-widest">
-                      Audit Log
+                      审计日志
                     </span>
                     <span
                       className={cn(
@@ -571,12 +573,12 @@ export function DetailPanel({
                           : "text-faint",
                       )}
                     >
-                      {detail.hooks?.auditLog !== false ? "Enabled" : "Off"}
+                      {detail.hooks?.auditLog !== false ? "已启用" : "关闭"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1 rounded-lg bg-bg-raised p-2.5 border border-border">
                     <span className="text-xs font-semibold text-faint uppercase tracking-widest">
-                      Notifications
+                      通知
                     </span>
                     <span
                       className={cn(
@@ -587,8 +589,8 @@ export function DetailPanel({
                       )}
                     >
                       {detail.hooks?.notifications !== false
-                        ? "Enabled"
-                        : "Off"}
+                        ? "已启用"
+                        : "关闭"}
                     </span>
                   </div>
                 </div>
@@ -598,7 +600,7 @@ export function DetailPanel({
               {detail.skills && detail.skills.length > 0 && (
                 <div className="flex flex-col gap-3">
                   <h4 className="flex items-center font-heading text-xs font-semibold uppercase tracking-widest text-accent m-0 pb-1.5 border-b border-border">
-                    Preloaded Skills
+                    预加载技能
                     <span className="inline-flex items-center justify-center min-w-[20px] h-[20px] px-[5px] ml-1.5 text-xs font-semibold rounded-[10px] bg-purple text-white align-middle">
                       {detail.skills.length}
                     </span>
@@ -618,7 +620,7 @@ export function DetailPanel({
             </>
           ) : (
             <div className="text-faint text-sm text-center py-8">
-              Failed to load agent details
+              智能体详情加载失败
             </div>
           )}
         </div>
@@ -639,7 +641,7 @@ export function DetailPanel({
               >
                 <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
               </svg>
-              Set as Default
+              设为默认
             </Button>
           )}
           <Button variant="primary" size="sm" onClick={onEdit}>
@@ -656,7 +658,7 @@ export function DetailPanel({
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
             </svg>
-            Edit Agent
+            编辑智能体
           </Button>
           {!agent.isDefault && (
             <Button variant="danger" size="sm" onClick={onDelete}>
@@ -674,7 +676,7 @@ export function DetailPanel({
                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
                 <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
               </svg>
-              Delete
+              删除
             </Button>
           )}
         </div>

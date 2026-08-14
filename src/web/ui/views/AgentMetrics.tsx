@@ -22,6 +22,9 @@ import {
   type CronJob,
   RANGES,
   sinceEpoch,
+  agentDisplayName,
+  sourceDisplayName,
+  modelDisplayName,
 } from "./agent-metrics/types";
 import {
   CostTimelineChart,
@@ -86,7 +89,7 @@ export default function AgentMetrics() {
       setError(null);
     } catch (_err) {
       if (signal.aborted) return;
-      setError("Failed to load metrics. Will retry.");
+      setError("指标加载失败，稍后会重试。");
     } finally {
       if (!signal.aborted) setLoading(false);
     }
@@ -104,7 +107,7 @@ export default function AgentMetrics() {
   }, [fetchData]);
 
   if (loading && byAgent.length === 0)
-    return <LoadingState message="Loading metrics..." />;
+    return <LoadingState message="正在加载指标..." />;
 
   if (error && byAgent.length === 0)
     return <EmptyState description={error} />;
@@ -158,8 +161,8 @@ export default function AgentMetrics() {
   return (
     <div className="max-w-[1400px]">
       <PageHeader
-        title="Agent Metrics"
-        subtitle="Performance, cost, and usage analysis"
+        title="智能体指标"
+        subtitle="性能、成本与用量分析"
       />
 
       <FilterTabs
@@ -171,8 +174,8 @@ export default function AgentMetrics() {
       {/* Agent selector */}
       <div className="flex flex-wrap gap-1.5 mb-6">
         {[
-          { id: "all", label: "All Agents" },
-          ...agentIds.map((id) => ({ id, label: id })),
+          { id: "all", label: "全部智能体" },
+          ...agentIds.map((id) => ({ id, label: agentDisplayName(id) })),
         ].map((t) => (
           <button
             key={t.id}
@@ -192,38 +195,38 @@ export default function AgentMetrics() {
       {/* Stats row */}
       <div className="grid grid-cols-4 max-lg:grid-cols-2 max-sm:grid-cols-1 gap-3 mb-6">
         <StatCard
-          label="Total Requests"
+          label="总请求数"
           value={formatNumber(totalReqs)}
-          sub={`${formatNumber(totalInput + totalOutput)} total tokens`}
+          sub={`${formatNumber(totalInput + totalOutput)} 个总 token`}
           accentColor="#a78bfa"
         />
         <StatCard
-          label="Total Cost"
+          label="总成本"
           value={formatCost(totalCost)}
           sub={
             totalReqs > 0
-              ? `${formatCost(costPerReq)} avg per request`
+              ? `平均每次请求 ${formatCost(costPerReq)}`
               : undefined
           }
           accentColor="#f59e0b"
         />
         <StatCard
-          label="Avg Response"
+          label="平均响应"
           value={formatDuration(avgDuration)}
           sub={
             relevantRecent.length > 0
-              ? `from ${relevantRecent.length} recent requests`
+              ? `基于最近 ${relevantRecent.length} 次请求`
               : undefined
           }
           accentColor="#2dd4bf"
         />
         <StatCard
-          label="Cache Hit Rate"
+          label="缓存命中率"
           value={`${cacheHitPct}%`}
           progress={cacheHitPct}
           sub={
             totalCacheRead > 0
-              ? `${formatNumber(totalCacheRead)} cached / ${formatNumber(totalInput)} input`
+              ? `${formatNumber(totalCacheRead)} 已缓存 / ${formatNumber(totalInput)} 输入`
               : undefined
           }
           accentColor={
@@ -238,7 +241,7 @@ export default function AgentMetrics() {
 
       {/* Cost over time */}
       {timeseries.length > 0 && (
-        <ChartCard title="Cost & Requests Over Time" className="mb-5">
+        <ChartCard title="成本与请求趋势" className="mb-5">
           <CostTimelineChart
             data={timeseries}
             granularity={range === "24h" ? "hour" : "day"}
@@ -249,10 +252,10 @@ export default function AgentMetrics() {
       {/* Two-column: Agent/Model breakdown + Token Distribution */}
       {isAllAgents && byAgent.length > 0 && (
         <div className="grid grid-cols-[1fr_320px] max-lg:grid-cols-1 gap-4 mb-5">
-          <ChartCard title="Cost by Agent">
+          <ChartCard title="按智能体统计成本">
             <CostByAgentChart data={byAgent} />
           </ChartCard>
-          <ChartCard title="Token Distribution">
+          <ChartCard title="Token 分布">
             <TokenDistributionChart
               input={totalInput}
               output={totalOutput}
@@ -266,7 +269,7 @@ export default function AgentMetrics() {
       {/* Single agent: Token dist + Activity in two columns */}
       {!isAllAgents && (
         <div className="grid grid-cols-[320px_1fr] max-lg:grid-cols-1 gap-4 mb-5">
-          <ChartCard title="Token Distribution">
+          <ChartCard title="Token 分布">
             <TokenDistributionChart
               input={totalInput}
               output={totalOutput}
@@ -275,7 +278,7 @@ export default function AgentMetrics() {
             />
           </ChartCard>
           {filteredRecent.length > 0 && (
-            <ChartCard title="Activity Timeline">
+            <ChartCard title="活动时间线">
               <ActivityTimelineChart
                 data={filteredRecent}
                 granularity={range === "24h" ? "hour" : "day"}
@@ -290,12 +293,12 @@ export default function AgentMetrics() {
       {isAllAgents && (
         <div className="grid grid-cols-2 max-lg:grid-cols-1 gap-4 mb-5">
           {byModel.length > 0 && (
-            <ChartCard title="Cost by Model">
+            <ChartCard title="按模型统计成本">
               <CostByModelChart data={byModel} />
             </ChartCard>
           )}
           {filteredRecent.length > 0 && (
-            <ChartCard title="Activity Timeline">
+            <ChartCard title="活动时间线">
               <ActivityTimelineChart
                 data={filteredRecent}
                 granularity={range === "24h" ? "hour" : "day"}
@@ -311,21 +314,21 @@ export default function AgentMetrics() {
         <div className="bg-bg-1 border border-border rounded-lg overflow-hidden mb-5">
           <div className="px-5 py-3 border-b border-border flex items-center justify-between">
             <h3 className="text-xs font-semibold text-muted uppercase tracking-[0.1em]">
-              Cron Jobs
+              定时任务
             </h3>
             <span className="text-[11px] font-mono text-faint">
-              {agentCronJobs.length} jobs
+              {agentCronJobs.length} 个任务
             </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className={cn(TH, "text-left")}>Name</th>
-                  <th className={cn(TH, "text-left")}>Agent</th>
-                  <th className={cn(TH, "text-center")}>Status</th>
-                  <th className={cn(TH, "text-right")}>Last Run</th>
-                  <th className={cn(TH, "text-right")}>Next Run</th>
+                  <th className={cn(TH, "text-left")}>名称</th>
+                  <th className={cn(TH, "text-left")}>智能体</th>
+                  <th className={cn(TH, "text-center")}>状态</th>
+                  <th className={cn(TH, "text-right")}>上次运行</th>
+                  <th className={cn(TH, "text-right")}>下次运行</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,7 +341,7 @@ export default function AgentMetrics() {
                       {job.name}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-muted text-xs">
-                      {job.payload.agentId ?? "—"}
+                      {job.payload.agentId ? agentDisplayName(job.payload.agentId) : "—"}
                     </td>
                     <td className="px-4 py-2.5 text-center">
                       <span
@@ -351,7 +354,11 @@ export default function AgentMetrics() {
                               : "bg-bg-3 text-faint",
                         )}
                       >
-                        {job.lastStatus ?? "pending"}
+                        {job.lastStatus === "ok"
+                          ? "正常"
+                          : job.lastStatus === "error"
+                            ? "错误"
+                            : "待运行"}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right text-faint text-xs whitespace-nowrap">
@@ -372,30 +379,30 @@ export default function AgentMetrics() {
       <div className="bg-bg-1 border border-border rounded-lg overflow-hidden">
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <h3 className="text-xs font-semibold text-muted uppercase tracking-[0.1em]">
-            Recent Activity
+            最近活动
           </h3>
           <span className="text-[11px] font-mono text-faint">
-            {filteredRecent.length} requests
+            {filteredRecent.length} 次请求
           </span>
         </div>
         {filteredRecent.length === 0 ? (
-          <EmptyState description="No usage records yet." />
+          <EmptyState description="暂无用量记录。" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
                   {isAllAgents && (
-                    <th className={cn(TH, "text-left")}>Agent</th>
+                    <th className={cn(TH, "text-left")}>智能体</th>
                   )}
-                  <th className={cn(TH, "text-left")}>Model</th>
-                  <th className={cn(TH, "text-left")}>Source</th>
-                  <th className={cn(TH, "text-right")}>Input</th>
-                  <th className={cn(TH, "text-right")}>Output</th>
-                  <th className={cn(TH, "text-center")}>Cache</th>
-                  <th className={cn(TH, "text-right")}>Cost</th>
-                  <th className={cn(TH, "text-right")}>Duration</th>
-                  <th className={cn(TH, "text-right")}>When</th>
+                  <th className={cn(TH, "text-left")}>模型</th>
+                  <th className={cn(TH, "text-left")}>来源</th>
+                  <th className={cn(TH, "text-right")}>输入</th>
+                  <th className={cn(TH, "text-right")}>输出</th>
+                  <th className={cn(TH, "text-center")}>缓存</th>
+                  <th className={cn(TH, "text-right")}>成本</th>
+                  <th className={cn(TH, "text-right")}>耗时</th>
+                  <th className={cn(TH, "text-right")}>时间</th>
                 </tr>
               </thead>
               <tbody>
@@ -406,15 +413,18 @@ export default function AgentMetrics() {
                   >
                     {isAllAgents && (
                       <td className="px-4 py-2 font-mono text-foreground text-sm">
-                        {r.agentId}
+                        <span className="font-sans">{agentDisplayName(r.agentId)}</span>
+                        <div className="font-mono text-[10px] text-faint mt-0.5">
+                          {r.agentId}
+                        </div>
                       </td>
                     )}
                     <td className="px-4 py-2 font-mono text-xs text-muted max-w-[140px] truncate">
-                      {r.model}
+                      {modelDisplayName(r.model)}
                     </td>
                     <td className="px-4 py-2">
                       <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-bg-3 text-muted">
-                        {r.source}
+                        {sourceDisplayName(r.source)}
                       </span>
                     </td>
                     <td className="px-4 py-2 text-right font-mono text-accent">

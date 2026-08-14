@@ -54,6 +54,17 @@ function ExecutionBadge({ status }: { readonly status: StepStatus }) {
   return null;
 }
 
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  manual: "手动",
+  cron: "定时",
+  webhook: "Webhook",
+};
+
+const OUTPUT_ACTION_LABELS: Record<string, string> = {
+  return: "返回结果",
+  send_channel: "发送到渠道",
+};
+
 function NodeWrapper({ nodeId, color, icon, label, sublabel, selected, children }: NodeWrapperProps) {
   const errors = useValidationErrors(nodeId);
   const stepInfo = useNodeStepInfo(nodeId);
@@ -110,8 +121,8 @@ export function TriggerNode({ id, data, selected }: NodeProps<Node<TriggerNodeDa
         nodeId={id}
         color="border-t-teal-500"
         icon={<Play size={14} className="text-teal-500" />}
-        label={data.label || "Trigger"}
-        sublabel={data.triggerType}
+        label={data.label || "触发器"}
+        sublabel={TRIGGER_TYPE_LABELS[data.triggerType] ?? data.triggerType}
         selected={selected}
       />
       <Handle type="source" position={Position.Right} />
@@ -127,7 +138,7 @@ export function AgentNode({ id, data, selected }: NodeProps<Node<AgentNodeData>>
         nodeId={id}
         color="border-t-purple-500"
         icon={<Bot size={14} className="text-purple-500" />}
-        label={data.label || "Agent"}
+        label={data.label || "智能体"}
         sublabel={data.agentName || undefined}
         selected={selected}
       />
@@ -144,7 +155,7 @@ export function ToolNode({ id, data, selected }: NodeProps<Node<ToolNodeData>>) 
         nodeId={id}
         color="border-t-blue-500"
         icon={<Wrench size={14} className="text-blue-500" />}
-        label={data.label || "Tool"}
+        label={data.label || "工具"}
         sublabel={data.toolName || undefined}
         selected={selected}
       />
@@ -161,7 +172,7 @@ export function SkillNode({ id, data, selected }: NodeProps<Node<SkillNodeData>>
         nodeId={id}
         color="border-t-green-500"
         icon={<Zap size={14} className="text-green-500" />}
-        label={data.label || "Skill"}
+        label={data.label || "技能"}
         sublabel={data.skillName || undefined}
         selected={selected}
       />
@@ -178,7 +189,7 @@ export function ConditionNode({ id, data, selected }: NodeProps<Node<ConditionNo
         nodeId={id}
         color="border-t-yellow-500"
         icon={<GitBranch size={14} className="text-yellow-500" />}
-        label={data.label || "Condition"}
+        label={data.label || "条件"}
         sublabel={data.expression ? String(data.expression).slice(0, 24) : undefined}
         selected={selected}
       />
@@ -206,7 +217,7 @@ export function TransformNode({ id, data, selected }: NodeProps<Node<TransformNo
         nodeId={id}
         color="border-t-orange-500"
         icon={<ArrowLeftRight size={14} className="text-orange-500" />}
-        label={data.label || "Transform"}
+        label={data.label || "转换"}
         sublabel={data.template ? String(data.template).slice(0, 24) : undefined}
         selected={selected}
       />
@@ -223,8 +234,8 @@ export function OutputNode({ id, data, selected }: NodeProps<Node<OutputNodeData
         nodeId={id}
         color="border-t-rose-500"
         icon={<Square size={14} className="text-rose-500" />}
-        label={data.label || "Output"}
-        sublabel={data.action ? String(data.action) : undefined}
+        label={data.label || "输出"}
+        sublabel={data.action ? (OUTPUT_ACTION_LABELS[data.action] ?? String(data.action)) : undefined}
         selected={selected}
       />
     </>

@@ -50,7 +50,7 @@ function TelegramSetupForm({
       await setupChannel("telegram", input);
       onSaved();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save";
+      const msg = err instanceof Error ? err.message : "保存失败";
       setApiError(msg);
     }
   }
@@ -63,30 +63,30 @@ function TelegramSetupForm({
         </div>
       )}
       <div className="mb-4">
-        <FormField label="Bot Token" id="tg-bot-token">
+        <FormField label="机器人令牌" id="tg-bot-token">
           <Input
             id="tg-bot-token"
             type="password"
             {...register("botToken")}
             placeholder={
-              snapshot.configured ? "(unchanged)" : "Enter bot token..."
+              snapshot.configured ? "保持不变" : "输入机器人令牌..."
             }
           />
         </FormField>
       </div>
       <div className="mb-4">
-        <FormField label="Allowed User IDs (comma-separated)" id="tg-user-ids">
+        <FormField label="允许的用户 ID（逗号分隔）" id="tg-user-ids">
           <Input
             id="tg-user-ids"
             type="text"
             {...register("allowedUserIds")}
-            placeholder="Leave empty to allow all"
+            placeholder="留空表示允许全部"
           />
         </FormField>
       </div>
       <div>
         <Button type="submit" size="sm" loading={isSubmitting}>
-          {isSubmitting ? "Saving..." : "Save"}
+          {isSubmitting ? "保存中..." : "保存"}
         </Button>
       </div>
     </form>
@@ -142,7 +142,7 @@ function WhatsAppSetupForm({
 
   async function handlePair() {
     if (!phoneNumber.trim()) {
-      setPairingError("Enter your phone number (country code + number, no +)");
+      setPairingError("请输入手机号（国家代码 + 号码，不含 +）");
       return;
     }
     setRequesting(true);
@@ -155,7 +155,7 @@ function WhatsAppSetupForm({
       }
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Failed to request pairing code";
+        err instanceof Error ? err.message : "请求配对码失败";
       setPairingError(msg);
     } finally {
       setRequesting(false);
@@ -179,7 +179,7 @@ function WhatsAppSetupForm({
       });
       onSaved();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to save";
+      const msg = err instanceof Error ? err.message : "保存失败";
       setApiError(msg);
     }
   }
@@ -191,12 +191,12 @@ function WhatsAppSetupForm({
       : "text-faint";
 
   const statusLabel = isConnected
-    ? "Connected"
+    ? "已连接"
     : pairingState === "pairing"
-      ? "Pairing..."
+      ? "配对中..."
       : pairingState === "waiting"
-        ? "Waiting for scan"
-        : "Disconnected";
+        ? "等待扫码"
+        : "未连接";
 
   return (
     <div className="flex flex-col gap-4">
@@ -208,7 +208,7 @@ function WhatsAppSetupForm({
 
       <div className="mb-4">
         <span className="font-heading text-xs font-semibold uppercase tracking-widest text-faint">
-          Status
+          状态
         </span>
         <span className={cn("ml-2 text-sm font-semibold", statusColor)}>
           {statusLabel}
@@ -223,14 +223,14 @@ function WhatsAppSetupForm({
               size="sm"
               onClick={() => setPairMode("qr")}
             >
-              QR Code
+              二维码
             </Button>
             <Button
               variant={pairMode === "code" ? "primary" : "secondary"}
               size="sm"
               onClick={() => setPairMode("code")}
             >
-              Pairing Code
+              配对码
             </Button>
           </div>
 
@@ -242,13 +242,13 @@ function WhatsAppSetupForm({
                     <QRCodeSVG value={qrCode} size={200} />
                   </div>
                   <div className="text-sm text-faint mt-2.5">
-                    Open WhatsApp &rarr; Linked Devices &rarr; Link a Device
-                    &rarr; Scan this QR code
+                    打开 WhatsApp &rarr; 已关联设备 &rarr; 关联设备
+                    &rarr; 扫描此二维码
                   </div>
                 </>
               ) : (
                 <div className="text-faint text-base py-8">
-                  Waiting for QR code...
+                  等待二维码...
                 </div>
               )}
             </div>
@@ -260,7 +260,7 @@ function WhatsAppSetupForm({
                 <div className="flex gap-2">
                   <div className="flex-1">
                     <Input
-                      label="Phone Number"
+                      label="手机号"
                       type="text"
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
@@ -273,7 +273,7 @@ function WhatsAppSetupForm({
                       onClick={handlePair}
                       loading={requesting}
                     >
-                      {requesting ? "Requesting..." : "Get Code"}
+                      {requesting ? "请求中..." : "获取配对码"}
                     </Button>
                   </div>
                 </div>
@@ -281,13 +281,13 @@ function WhatsAppSetupForm({
 
               {pairingCode && (
                 <div className="p-4 bg-bg-2 border border-border rounded-lg mb-4 text-center">
-                  <div className="text-base text-faint mb-1.5">Pairing Code</div>
+                  <div className="text-base text-faint mb-1.5">配对码</div>
                   <div className="text-2xl font-bold tracking-widest font-mono text-foreground">
                     {pairingCode.slice(0, 4)}-{pairingCode.slice(4)}
                   </div>
                   <div className="text-sm text-faint mt-2.5">
-                    Open WhatsApp &rarr; Linked Devices &rarr; Link a Device
-                    &rarr; Link with phone number instead &rarr; Enter this code
+                    打开 WhatsApp &rarr; 已关联设备 &rarr; 关联设备
+                    &rarr; 改用手机号关联 &rarr; 输入此配对码
                   </div>
                 </div>
               )}
@@ -304,7 +304,7 @@ function WhatsAppSetupForm({
         )}
         <div className="mb-4">
           <FormField
-            label="Allowed Numbers (comma-separated)"
+            label="允许的号码（逗号分隔）"
             id="wa-allowed-numbers"
           >
             <Input
@@ -317,7 +317,7 @@ function WhatsAppSetupForm({
         </div>
         <div className="mb-4">
           <FormField
-            label="Allowed Groups (comma-separated group JIDs, empty = all)"
+            label="允许的群组（群组 JID 逗号分隔，留空表示全部）"
             id="wa-allowed-groups"
           >
             <Input
@@ -330,7 +330,7 @@ function WhatsAppSetupForm({
         </div>
         <div>
           <Button type="submit" size="sm" loading={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save"}
+            {isSubmitting ? "保存中..." : "保存"}
           </Button>
         </div>
       </form>
@@ -351,7 +351,7 @@ export default function ChannelSetupForm({
   }
   return (
     <p className="text-faint text-base">
-      No setup form available for this channel.
+      这个渠道暂无配置表单。
     </p>
   );
 }

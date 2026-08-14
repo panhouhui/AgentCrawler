@@ -324,7 +324,7 @@ export async function synthesizeSignals(
   enrichedSeed: string,
   options: {
     readonly model?: string;
-    readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "opencode";
+    readonly provider?: "openrouter" | "agent-sdk" | "alibaba" | "anthropic" | "minimax" | "opencode";
   },
 ): Promise<SynthesizedSignals> {
   const messages: readonly ConversationMessage[] = [

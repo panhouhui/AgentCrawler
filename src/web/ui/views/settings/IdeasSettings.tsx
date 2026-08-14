@@ -67,6 +67,17 @@ interface IdeasConfigResponse {
   readonly overrides: Record<string, unknown>;
 }
 
+const OPTION_LABELS: Record<string, string> = {
+  archetype: "原型",
+  category: "类别",
+  none: "无",
+  bootstrap: "自筹",
+  seed: "种子轮",
+  funded: "已有融资",
+  low: "低",
+  high: "高",
+};
+
 /* ── Shared form primitives ── */
 
 function NumberField({
@@ -174,7 +185,7 @@ function SelectField<T extends string>({
       >
         {options.map((opt) => (
           <option key={opt} value={opt}>
-            {opt}
+            {OPTION_LABELS[opt] ?? opt}
           </option>
         ))}
       </select>
@@ -215,7 +226,7 @@ function StringListField({
       </div>
       <div className="flex flex-wrap gap-1.5">
         {values.length === 0 && (
-          <span className="text-xs text-faint">No domains — empty never matches (default).</span>
+          <span className="text-xs text-faint">暂无领域，留空时不做领域匹配。</span>
         )}
         {values.map((domain) => (
           <span
@@ -225,7 +236,7 @@ function StringListField({
             {domain}
             <button
               type="button"
-              aria-label={`Remove ${domain}`}
+              aria-label={`移除 ${domain}`}
               onClick={() => remove(domain)}
               className="text-muted hover:text-foreground bg-transparent border-none cursor-pointer p-0 flex items-center"
             >
@@ -239,7 +250,7 @@ function StringListField({
           type="text"
           value={draft}
           maxLength={80}
-          placeholder="Add a domain (e.g. fintech)"
+          placeholder="添加领域，例如 fintech"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -250,7 +261,7 @@ function StringListField({
           className="flex-1 bg-bg-2 border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:border-accent"
         />
         <Button variant="ghost" size="sm" onClick={add} disabled={draft.trim() === ""}>
-          Add
+          添加
         </Button>
       </div>
     </div>
@@ -286,9 +297,9 @@ function ConfigPanel<T>({
         method: "PUT",
         body: JSON.stringify(toBody(draft)),
       });
-      success(`${title} saved.`);
+      success(`${title} 已保存。`);
     } catch {
-      toastError(`Failed to save ${title}.`);
+      toastError(`${title} 保存失败。`);
     } finally {
       setSaving(false);
     }
@@ -304,7 +315,7 @@ function ConfigPanel<T>({
       <div className="flex justify-end gap-2 pt-4">
         {isDirty && (
           <Button variant="ghost" size="sm" onClick={() => setDraft(initial)} disabled={saving}>
-            Reset
+            重置
           </Button>
         )}
         <Button
@@ -314,7 +325,7 @@ function ConfigPanel<T>({
           disabled={saving || !isDirty}
           loading={saving}
         >
-          Save
+          保存
         </Button>
       </div>
     </div>
@@ -334,7 +345,7 @@ export default function IdeasSettings() {
         const res = await apiFetch<{ data: IdeasConfigResponse }>("/api/config/ideas");
         if (!cancelled) setConfig(res.data.effective);
       } catch {
-        if (!cancelled) toastError("Failed to load ideas/funnel config.");
+        if (!cancelled) toastError("创意漏斗配置加载失败。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -344,7 +355,7 @@ export default function IdeasSettings() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (loading) return <LoadingState message="Loading ideas config..." />;
+  if (loading) return <LoadingState message="正在加载创意配置..." />;
   if (!config) return null;
 
   return (
@@ -354,18 +365,17 @@ export default function IdeasSettings() {
           <Lightbulb className="w-[18px] h-[18px]" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-strong m-0">Ideas &amp; Funnel</h2>
+          <h2 className="text-sm font-semibold text-strong m-0">创意与漏斗</h2>
           <p className="text-xs text-muted m-0 mt-0.5">
-            Outcome-memory learning, incumbent exclusion, diversity guard, and the competability
-            (small-builder moat) gate. Changes apply on the next pipeline run — no restart required.
+            管理结果记忆、存量竞品排除、多样性保护和小团队可行性门槛。修改会在下一次管线运行时生效，无需重启。
           </p>
         </div>
       </div>
 
       {/* Outcome memory */}
       <ConfigPanel<OutcomeMemory>
-        title="Outcome Memory"
-        description="Write idea verdicts back to mem0 and inject learned REINFORCE/AVOID guidance at synthesis."
+        title="结果记忆"
+        description="把创意判定写回 mem0，并在合成阶段注入已学习的强化/规避建议。"
         section="outcomeMemory"
         initial={config.outcomeMemory}
         toBody={(d) => d}
@@ -373,36 +383,36 @@ export default function IdeasSettings() {
         {(draft, set) => (
           <>
             <ToggleField
-              label="Write back verdicts"
-              description="Persist idea verdicts to mem0 (the write half of the loop)."
+              label="写回判定"
+              description="把创意判定持久化到 mem0。"
               checked={draft.writeBack}
               onChange={(v) => set({ ...draft, writeBack: v })}
             />
             <ToggleField
-              label="Read at synthesis"
-              description="Inject learned guidance into the synthesis prompt."
+              label="合成时读取"
+              description="把已学习的建议注入合成提示词。"
               checked={draft.readAtSynthesis}
               onChange={(v) => set({ ...draft, readAtSynthesis: v })}
             />
             <NumberField
-              label="Reinforce cap"
-              description="Max REINFORCE bullets injected (1–20)."
+              label="强化建议上限"
+              description="最多注入的强化建议数量（1-20）。"
               value={draft.reinforceCap}
               min={1}
               max={20}
               onChange={(v) => set({ ...draft, reinforceCap: v })}
             />
             <NumberField
-              label="Avoid cap"
-              description="Max AVOID bullets injected (1–20)."
+              label="规避建议上限"
+              description="最多注入的规避建议数量（1-20）。"
               value={draft.avoidCap}
               min={1}
               max={20}
               onChange={(v) => set({ ...draft, avoidCap: v })}
             />
             <NumberField
-              label="Search limit"
-              description="mem0 results per verdict bucket (1–50)."
+              label="搜索上限"
+              description="每个判定桶最多读取的 mem0 结果数（1-50）。"
               value={draft.searchLimit}
               min={1}
               max={50}
@@ -414,8 +424,8 @@ export default function IdeasSettings() {
 
       {/* Incumbent exclusion */}
       <ConfigPanel<IncumbentExclusion>
-        title="Incumbent Exclusion"
-        description="Drop or down-rank collector signals that name a top-charted incumbent."
+        title="存量竞品排除"
+        description="降低或剔除命中头部竞品的采集信号。"
         section="incumbentExclusion"
         initial={config.incumbentExclusion}
         toBody={(d) => d}
@@ -423,13 +433,13 @@ export default function IdeasSettings() {
         {(draft, set) => (
           <>
             <ToggleField
-              label="Enabled"
+              label="启用"
               checked={draft.enabled}
               onChange={(v) => set({ ...draft, enabled: v })}
             />
             <NumberField
-              label="Top-N incumbents"
-              description="How many top-charted apps to treat as incumbents (1–1000)."
+              label="头部竞品数量"
+              description="将多少个榜单头部应用视为存量竞品（1-1000）。"
               value={draft.topN}
               min={1}
               max={1000}
@@ -441,8 +451,8 @@ export default function IdeasSettings() {
 
       {/* Diversity guard */}
       <ConfigPanel<DiversityGuard>
-        title="Diversity Guard"
-        description="Cap any single archetype/category's share of the kept set so the funnel can't collapse into one monoculture."
+        title="多样性保护"
+        description="限制单一原型或类别在保留结果中的占比，避免漏斗收敛到单一方向。"
         section="diversityGuard"
         initial={config.diversityGuard}
         toBody={(d) => d}
@@ -450,13 +460,13 @@ export default function IdeasSettings() {
         {(draft, set) => (
           <>
             <ToggleField
-              label="Enabled"
+              label="启用"
               checked={draft.enabled}
               onChange={(v) => set({ ...draft, enabled: v })}
             />
             <NumberField
-              label="Max bucket share"
-              description="Share ceiling (0–1) any one bucket may occupy. ~0.5 = no archetype over half."
+              label="单桶占比上限"
+              description="任一桶可占据的最高比例（0-1），例如 0.5 表示不超过一半。"
               value={draft.maxBucketShare}
               min={0}
               max={1}
@@ -464,8 +474,8 @@ export default function IdeasSettings() {
               onChange={(v) => set({ ...draft, maxBucketShare: v })}
             />
             <SelectField<BucketBy>
-              label="Bucket by"
-              description="Which candidate field defines a bucket."
+              label="分桶字段"
+              description="用候选项的哪个字段来划分桶。"
               value={draft.bucketBy}
               options={["archetype", "category"]}
               onChange={(v) => set({ ...draft, bucketBy: v })}
@@ -476,8 +486,8 @@ export default function IdeasSettings() {
 
       {/* Competability gate */}
       <ConfigPanel<Competability>
-        title="Competability Gate"
-        description="Penalize ideas behind a small-builder-fatal moat. Shadow mode logs would-reject decisions without dropping ideas."
+        title="小团队可行性门槛"
+        description="惩罚对小团队不友好的高壁垒创意；影子模式只记录可能拒绝的结果，不直接丢弃。"
         section="competability"
         initial={config.competability}
         toBody={(d) => d}
@@ -485,20 +495,20 @@ export default function IdeasSettings() {
         {(draft, set) => (
           <>
             <ToggleField
-              label="Enabled"
-              description="Compute + store the competability scorecard for every idea."
+              label="启用"
+              description="为每个创意计算并保存可行性评分卡。"
               checked={draft.enabled}
               onChange={(v) => set({ ...draft, enabled: v })}
             />
             <ToggleField
-              label="Enforce gate"
-              description="Actually drop ideas below the reject threshold (off = shadow mode)."
+              label="强制执行门槛"
+              description="实际丢弃低于拒绝阈值的创意；关闭则为影子模式。"
               checked={draft.enforceGate}
               onChange={(v) => set({ ...draft, enforceGate: v })}
             />
             <NumberField
-              label="Reject threshold"
-              description="Overall (0–5) below which an idea is hard-rejected when enforcing."
+              label="拒绝阈值"
+              description="总分低于该值（0-5）时，在强制模式下直接拒绝。"
               value={draft.rejectThreshold}
               min={0}
               max={5}
@@ -506,8 +516,8 @@ export default function IdeasSettings() {
               onChange={(v) => set({ ...draft, rejectThreshold: v })}
             />
             <NumberField
-              label="Soft-penalty threshold"
-              description="Soft-penalty band ceiling (0–5): logged/penalized but not rejected."
+              label="软惩罚阈值"
+              description="软惩罚区间上限（0-5）：记录并降权，但不直接拒绝。"
               value={draft.softPenaltyThreshold}
               min={0}
               max={5}
@@ -515,8 +525,8 @@ export default function IdeasSettings() {
               onChange={(v) => set({ ...draft, softPenaltyThreshold: v })}
             />
             <NumberField
-              label="Top-N incumbents (pre-filter)"
-              description="Incumbents the cheap heuristic checks idea text against (1–1000)."
+              label="预过滤竞品数量"
+              description="低成本启发式检查时对照的竞品数量（1-1000）。"
               value={draft.topNIncumbents}
               min={1}
               max={1000}
@@ -525,11 +535,11 @@ export default function IdeasSettings() {
 
             <div className="border-t border-border pt-3 mt-1 flex flex-col gap-3">
               <div className="text-xs font-medium text-muted uppercase tracking-wide">
-                Builder profile
+                构建者画像
               </div>
               <SelectField<Capital>
-                label="Capital"
-                description="Sustained capital the builder can deploy."
+                label="资金能力"
+                description="构建者可持续投入的资金水平。"
                 value={draft.builderProfile.capital}
                 options={["none", "bootstrap", "seed", "funded"]}
                 onChange={(v) =>
@@ -537,8 +547,8 @@ export default function IdeasSettings() {
                 }
               />
               <NumberField
-                label="Team size"
-                description="Headcount; heads above 1 discount the logistics moat (1–1000)."
+                label="团队规模"
+                description="团队人数；超过 1 人会降低运营壁垒惩罚（1-1000）。"
                 value={draft.builderProfile.teamSize}
                 min={1}
                 max={1000}
@@ -547,8 +557,8 @@ export default function IdeasSettings() {
                 }
               />
               <SelectField<Appetite>
-                label="Regulatory appetite"
-                description="Appetite for entering a regulated market."
+                label="监管承受度"
+                description="进入受监管市场的意愿和能力。"
                 value={draft.builderProfile.regulatoryAppetite}
                 options={["none", "low", "high"]}
                 onChange={(v) =>
@@ -559,8 +569,8 @@ export default function IdeasSettings() {
                 }
               />
               <SelectField<Appetite>
-                label="Ops appetite"
-                description="Appetite for running physical ops."
+                label="运营承受度"
+                description="承担线下或重运营工作的意愿。"
                 value={draft.builderProfile.opsAppetite}
                 options={["none", "low", "high"]}
                 onChange={(v) =>
@@ -568,8 +578,8 @@ export default function IdeasSettings() {
                 }
               />
               <StringListField
-                label="Expertise domains"
-                description="Domains the builder has expertise in; a text match discounts that idea's moat. Up to 50, 80 chars each."
+                label="专业领域"
+                description="构建者擅长的领域；文本命中后会降低对应创意的壁垒惩罚。最多 50 个，每个 80 字符。"
                 values={draft.builderProfile.expertiseDomains}
                 onChange={(v) =>
                   set({

@@ -73,7 +73,7 @@ export function buildTimelineOption(
         itemStyle: { color: C.teal },
       },
       {
-        name: "Memory %",
+        name: "内存 %",
         type: "line",
         data: chartData.map((d) => d.memory),
         smooth: true,
@@ -182,7 +182,7 @@ export function buildPieOption(
         data: [
           {
             value: usedGB,
-            name: "Used",
+            name: "已用",
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 1, 1, [
                 { offset: 0, color: C.purple },
@@ -192,7 +192,7 @@ export function buildPieOption(
           },
           {
             value: availableGB,
-            name: "Available",
+            name: "可用",
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 1, 1, [
                 { offset: 0, color: C.teal },
@@ -235,7 +235,7 @@ export function buildLoadOption(
     },
     series: [
       {
-        name: "1m Load",
+        name: "1 分钟负载",
         type: "line",
         data: chartData.map((d) => d.load1m),
         smooth: true,
@@ -250,7 +250,7 @@ export function buildLoadOption(
         itemStyle: { color: C.deepPurple },
       },
       {
-        name: "5m Load",
+        name: "5 分钟负载",
         type: "line",
         data: chartData.map((d) => d.load5m),
         smooth: true,
@@ -259,7 +259,7 @@ export function buildLoadOption(
         itemStyle: { color: C.amber },
       },
       {
-        name: "15m Load",
+        name: "15 分钟负载",
         type: "line",
         data: chartData.map((d) => d.load15m),
         smooth: true,

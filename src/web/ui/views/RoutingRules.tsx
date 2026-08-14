@@ -32,8 +32,8 @@ interface RoutingRule {
 const ruleFormSchema = z.object({
   channel: z.string(),
   matchType: z.string(),
-  matchValue: z.string().min(1, "Match value is required"),
-  agentId: z.string().min(1, "Agent ID is required"),
+  matchValue: z.string().min(1, "匹配值不能为空"),
+  agentId: z.string().min(1, "智能体 ID 不能为空"),
   priority: z.number().int(),
   enabled: z.boolean(),
   notes: z.string(),
@@ -65,6 +65,19 @@ const TYPE_COLORS: Record<string, string> = {
   user: "green",
   group: "yellow",
   pattern: "gray",
+};
+
+const CHANNEL_LABELS: Record<string, string> = {
+  "*": "任意",
+  telegram: "Telegram",
+  whatsapp: "WhatsApp",
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  chat: "聊天",
+  user: "用户",
+  group: "群组",
+  pattern: "模式",
 };
 
 const badgeClasses: Record<string, string> = {
@@ -199,7 +212,7 @@ function RuleFormModal({
       }
       onSave();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to save rule";
+      const msg = err instanceof Error ? err.message : "保存规则失败";
       setApiError(msg);
     }
   }
@@ -208,7 +221,7 @@ function RuleFormModal({
     <Modal
       open
       onClose={onClose}
-      title={isEdit ? "Edit Routing Rule" : "Create Routing Rule"}
+      title={isEdit ? "编辑路由规则" : "创建路由规则"}
     >
       {apiError && (
         <div className="bg-danger-subtle border border-danger/20 rounded-lg px-4 py-3 text-danger text-sm mb-5">
@@ -222,12 +235,12 @@ function RuleFormModal({
             control={control}
             render={({ field }) => (
               <SelectField
-                label="Channel"
+                label="渠道"
                 id="rule-channel"
                 value={field.value}
                 onChange={field.onChange}
                 options={[
-                  { value: "*", label: "Any (*)" },
+                  { value: "*", label: "任意 (*)" },
                   { value: "telegram", label: "Telegram" },
                   { value: "whatsapp", label: "WhatsApp" },
                 ]}
@@ -239,39 +252,39 @@ function RuleFormModal({
             control={control}
             render={({ field }) => (
               <SelectField
-                label="Match Type"
+                label="匹配类型"
                 id="rule-match-type"
                 value={field.value}
                 onChange={field.onChange}
                 options={[
-                  { value: "chat", label: "Chat" },
-                  { value: "user", label: "User" },
-                  { value: "group", label: "Group" },
-                  { value: "pattern", label: "Pattern" },
+                  { value: "chat", label: "聊天" },
+                  { value: "user", label: "用户" },
+                  { value: "group", label: "群组" },
+                  { value: "pattern", label: "模式" },
                 ]}
               />
             )}
           />
         </div>
 
-        <FormField label="Match Value" id="rule-match-value" error={errors.matchValue}>
+        <FormField label="匹配值" id="rule-match-value" error={errors.matchValue}>
           <Input
             id="rule-match-value"
             {...register("matchValue")}
-            placeholder="e.g. 12345678 or /hello.*/"
+            placeholder="例如：12345678 或 /hello.*/"
           />
         </FormField>
 
-        <FormField label="Agent ID" id="rule-agent-id" error={errors.agentId}>
+        <FormField label="智能体 ID" id="rule-agent-id" error={errors.agentId}>
           <Input
             id="rule-agent-id"
             {...register("agentId")}
-            placeholder="e.g. default or ai-idea-gen"
+            placeholder="例如：default 或 social-fusion-agent"
           />
         </FormField>
 
         <div className="grid grid-cols-2 gap-4 items-end">
-          <FormField label="Priority" id="rule-priority" hint="Higher = checked first">
+          <FormField label="优先级" id="rule-priority" hint="数值越高越先匹配">
             <input
               id="rule-priority"
               type="number"
@@ -287,27 +300,27 @@ function RuleFormModal({
                 <Toggle
                   checked={field.value}
                   onChange={field.onChange}
-                  label="Enabled"
+                  label="已启用"
                 />
               )}
             />
           </div>
         </div>
 
-        <FormField label="Notes (optional)" id="rule-notes">
+        <FormField label="备注（可选）" id="rule-notes">
           <Input
             id="rule-notes"
             {...register("notes")}
-            placeholder="Optional description..."
+            placeholder="可选描述..."
           />
         </FormField>
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
+            取消
           </Button>
           <Button type="submit" loading={isSubmitting}>
-            {isEdit ? "Save Changes" : "Create Rule"}
+            {isEdit ? "保存修改" : "创建规则"}
           </Button>
         </div>
       </form>
@@ -337,9 +350,9 @@ function DeleteConfirmModal({
   }
 
   return (
-    <Modal open onClose={onClose} title="Delete Rule">
+    <Modal open onClose={onClose} title="删除规则">
       <p className="text-muted text-sm mb-2">
-        Are you sure you want to delete this routing rule?
+        确定要删除这条路由规则吗？
       </p>
       <div className="bg-bg rounded-lg border border-border px-4 py-3 mb-6">
         <span className="font-mono text-sm text-foreground">
@@ -349,10 +362,10 @@ function DeleteConfirmModal({
       </div>
       <div className="flex justify-end gap-3">
         <Button variant="secondary" onClick={onClose}>
-          Cancel
+          取消
         </Button>
         <Button variant="danger" loading={deleting} onClick={handleDelete}>
-          Delete Rule
+          删除规则
         </Button>
       </div>
     </Modal>
@@ -411,7 +424,7 @@ export default function RoutingRules() {
   }
 
   if (loading) {
-    return <LoadingState message="Loading routing rules..." />;
+    return <LoadingState message="正在加载路由规则..." />;
   }
 
   const sorted = [...rules].sort((a, b) => b.priority - a.priority);
@@ -419,33 +432,33 @@ export default function RoutingRules() {
   return (
     <div className="max-w-[1200px]">
       <PageHeader
-        title="Routing Rules"
-        subtitle="Route messages to agents based on channel, chat, or pattern"
+        title="路由规则"
+        subtitle="按渠道、聊天或模式把消息分配给指定智能体"
         count={rules.length}
         actions={
           <Button onClick={() => setShowCreate(true)}>
             <Plus size={16} />
-            Add Rule
+            添加规则
           </Button>
         }
       />
 
       {sorted.length === 0 ? (
-        <EmptyState description="No routing rules configured. Add a rule to route messages to specific agents." />
+        <EmptyState description="暂无路由规则。添加规则后可将消息路由到指定智能体。" />
       ) : (
         <div className="bg-bg-1 border border-border rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className={cn(TH, "text-left")}>Channel</th>
-                  <th className={cn(TH, "text-left")}>Type</th>
-                  <th className={cn(TH, "text-left")}>Match Value</th>
-                  <th className={cn(TH, "text-left")}>Agent</th>
-                  <th className={cn(TH, "text-right")}>Priority</th>
-                  <th className={cn(TH, "text-center")}>Enabled</th>
-                  <th className={cn(TH, "text-left")}>Notes</th>
-                  <th className={cn(TH, "text-right")}>Actions</th>
+                  <th className={cn(TH, "text-left")}>渠道</th>
+                  <th className={cn(TH, "text-left")}>类型</th>
+                  <th className={cn(TH, "text-left")}>匹配值</th>
+                  <th className={cn(TH, "text-left")}>智能体</th>
+                  <th className={cn(TH, "text-right")}>优先级</th>
+                  <th className={cn(TH, "text-center")}>启用</th>
+                  <th className={cn(TH, "text-left")}>备注</th>
+                  <th className={cn(TH, "text-right")}>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -456,13 +469,13 @@ export default function RoutingRules() {
                   >
                     <td className="px-4 py-2.5">
                       <Badge
-                        label={rule.channel === "*" ? "Any" : rule.channel}
+                        label={CHANNEL_LABELS[rule.channel] ?? rule.channel}
                         color={CHANNEL_COLORS[rule.channel] ?? "gray"}
                       />
                     </td>
                     <td className="px-4 py-2.5">
                       <Badge
-                        label={rule.matchType}
+                        label={TYPE_LABELS[rule.matchType] ?? rule.matchType}
                         color={TYPE_COLORS[rule.matchType] ?? "gray"}
                       />
                     </td>
@@ -489,14 +502,14 @@ export default function RoutingRules() {
                         <button
                           className="w-8 h-8 rounded-md bg-transparent border-none text-muted cursor-pointer flex items-center justify-center hover:bg-bg-3 hover:text-foreground transition-colors"
                           onClick={() => setEditRule(rule)}
-                          aria-label="Edit rule"
+                          aria-label="编辑规则"
                         >
                           <Pencil size={15} />
                         </button>
                         <button
                           className="w-8 h-8 rounded-md bg-transparent border-none text-muted cursor-pointer flex items-center justify-center hover:bg-danger-subtle hover:text-danger transition-colors"
                           onClick={() => setDeleteRule(rule)}
-                          aria-label="Delete rule"
+                          aria-label="删除规则"
                         >
                           <Trash2 size={15} />
                         </button>

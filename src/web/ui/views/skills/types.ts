@@ -28,112 +28,112 @@ export interface SkillFormData {
 export const SKILL_TEMPLATES: readonly SkillTemplate[] = [
   {
     id: "blank",
-    name: "Blank Skill",
-    description: "Start from scratch",
+    name: "空白技能",
+    description: "从空白开始",
     content: "",
   },
   {
     id: "code-review",
-    name: "Code Review",
-    description: "Review code for quality, security, and best practices",
-    content: `# Code Review Skill
+    name: "代码审查",
+    description: "从质量、安全和最佳实践角度审查代码",
+    content: `# 代码审查技能
 
-## Objective
-Review code changes for quality, security, and adherence to best practices.
+## 目标
+审查代码变更的质量、安全性和最佳实践遵循情况。
 
-## Steps
-1. Analyze the code diff or file contents
-2. Check for common issues:
-   - Security vulnerabilities (injection, XSS, etc.)
-   - Performance bottlenecks
-   - Code style violations
-   - Missing error handling
-3. Provide actionable feedback with specific line references
-4. Suggest improvements with code examples
+## 步骤
+1. 分析代码 diff 或文件内容
+2. 检查常见问题：
+   - 安全漏洞（注入、XSS 等）
+   - 性能瓶颈
+   - 代码风格问题
+   - 缺少错误处理
+3. 给出带具体位置的可执行反馈
+4. 用代码示例提出改进建议
 
-## Output Format
-- **Critical**: Must fix before merge
-- **Warning**: Should fix, potential issues
-- **Suggestion**: Nice to have improvements`,
+## 输出格式
+- **严重**：合并前必须修复
+- **警告**：建议修复，存在潜在问题
+- **建议**：可选优化项`,
   },
   {
     id: "data-analysis",
-    name: "Data Analysis",
-    description: "Analyze datasets and generate insights",
-    content: `# Data Analysis Skill
+    name: "数据分析",
+    description: "分析数据集并生成洞察",
+    content: `# 数据分析技能
 
-## Objective
-Analyze provided data and generate meaningful insights.
+## 目标
+分析给定数据并生成有意义的洞察。
 
-## Steps
-1. Understand the data structure and types
-2. Identify key metrics and trends
-3. Look for patterns, anomalies, and correlations
-4. Generate visualizations if applicable
-5. Summarize findings with actionable recommendations
+## 步骤
+1. 理解数据结构和字段类型
+2. 识别关键指标和趋势
+3. 寻找模式、异常和相关性
+4. 在适合时生成可视化
+5. 总结发现并给出可执行建议
 
-## Guidelines
-- Always validate data quality first
-- Use statistical methods where appropriate
-- Present findings in clear, non-technical language
-- Include confidence levels for predictions`,
+## 规范
+- 始终先验证数据质量
+- 在适合时使用统计方法
+- 用清晰、非技术化的语言呈现发现
+- 对预测结果说明置信度`,
   },
   {
     id: "api-design",
-    name: "API Design",
-    description: "Design RESTful API endpoints following best practices",
-    content: `# API Design Skill
+    name: "API 设计",
+    description: "按照最佳实践设计 RESTful API 接口",
+    content: `# API 设计技能
 
-## Objective
-Design clean, consistent RESTful API endpoints.
+## 目标
+设计清晰、一致的 RESTful API 接口。
 
-## Principles
-- Use resource-oriented URLs
-- Apply proper HTTP methods (GET, POST, PUT, DELETE)
-- Version APIs appropriately
-- Include pagination for list endpoints
-- Use consistent error response format
+## 原则
+- 使用面向资源的 URL
+- 正确应用 HTTP 方法（GET、POST、PUT、DELETE）
+- 合理规划 API 版本
+- 列表接口包含分页
+- 使用一致的错误响应格式
 
-## Template
+## 模板
 \`\`\`
-GET    /api/v1/{resources}          - List
-GET    /api/v1/{resources}/:id      - Get detail
-POST   /api/v1/{resources}          - Create
-PUT    /api/v1/{resources}/:id      - Update
-DELETE /api/v1/{resources}/:id      - Delete
+GET    /api/v1/{resources}          - 列表
+GET    /api/v1/{resources}/:id      - 详情
+POST   /api/v1/{resources}          - 创建
+PUT    /api/v1/{resources}/:id      - 更新
+DELETE /api/v1/{resources}/:id      - 删除
 \`\`\`
 
-## Error Format
+## 错误格式
 \`\`\`json
 {
   "success": false,
-  "error": "Human-readable message",
+  "error": "面向用户的错误信息",
   "code": "MACHINE_READABLE_CODE"
 }
 \`\`\``,
   },
   {
     id: "writing",
-    name: "Content Writing",
-    description: "Write clear, engaging content for various formats",
-    content: `# Content Writing Skill
+    name: "内容写作",
+    description: "为不同格式撰写清晰、有吸引力的内容",
+    content: `# 内容写作技能
 
-## Objective
-Create clear, engaging, and well-structured content.
+## 目标
+创作清晰、有吸引力且结构良好的内容。
 
-## Guidelines
-- Start with a compelling hook
-- Use short paragraphs and sentences
-- Include relevant examples
-- Maintain consistent tone and voice
-- End with a clear call-to-action or summary
+## 规范
+- 用有吸引力的开头抓住读者
+- 使用短段落和短句
+- 加入相关示例
+- 保持一致的语气和风格
+- 以明确行动建议或总结收尾
 
-## Formats Supported
-- Blog posts
-- Documentation
-- Social media
-- Email campaigns
-- Technical guides`,
+## 支持格式
+- 博客文章
+- 文档
+- 社交媒体
+- 邮件活动
+- 技术指南`,
   },
 ] as const;
 

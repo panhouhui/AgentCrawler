@@ -121,7 +121,7 @@ function ToastCard({ item, onDismiss }: ToastCardProps) {
       <button
         onClick={dismiss}
         className="mt-0.5 shrink-0 w-5 h-5 flex items-center justify-center rounded text-faint hover:text-foreground hover:bg-bg-3 transition-colors cursor-pointer border-none bg-transparent"
-        aria-label="Dismiss"
+        aria-label="关闭通知"
       >
         <X size={13} />
       </button>
@@ -164,7 +164,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* Toast container — bottom-right, above everything */}
       <div
         className="fixed bottom-5 right-5 z-[70] flex flex-col gap-2 pointer-events-none"
-        aria-label="Notifications"
+        aria-label="通知"
       >
         {toasts.map((item) => (
           <div key={item.id} className="pointer-events-auto">

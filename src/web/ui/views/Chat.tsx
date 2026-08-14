@@ -122,11 +122,11 @@ export default function Chat() {
 
   function handleWsEvent(event: WsInboundEvent): void {
     if (event.type === "tool_start") {
-      setToolStatus(`Using ${event.tool ?? "tool"}...`);
+      setToolStatus(`正在使用 ${event.tool ?? "工具"}...`);
     } else if (event.type === "tool_done") {
       setToolStatus(null);
     } else if (event.type === "thinking") {
-      setToolStatus("Thinking...");
+      setToolStatus("正在思考...");
     } else if (event.type === "text_output" && event.preview) {
       setStreamText(event.preview);
     } else if (event.type === "complete") {
@@ -147,7 +147,7 @@ export default function Chat() {
       setStreamText("");
       setError(null);
     } else if (event.type === "error") {
-      setError((event as WsErrorEvent).message ?? "An error occurred");
+      setError((event as WsErrorEvent).message ?? "发生错误");
       setSending(false);
       setStreamText("");
       setToolStatus(null);
@@ -212,7 +212,7 @@ export default function Chat() {
     if (!text || sending) return;
 
     if (!wsConnected || wsRef.current?.readyState !== WebSocket.OPEN) {
-      setError("Not connected — please wait and try again.");
+      setError("尚未连接，请稍后重试。");
       return;
     }
 
@@ -243,7 +243,7 @@ export default function Chat() {
         }),
       );
     } catch (err) {
-      setError("Failed to send message. Please try again.");
+      setError("消息发送失败，请重试。");
       setSending(false);
     }
   }
@@ -253,7 +253,7 @@ export default function Chat() {
       try {
         wsRef.current.send(JSON.stringify({ type: "clear", chatId: CHAT_ID }));
       } catch {
-        setError("Failed to clear chat");
+        setError("清空对话失败");
       }
     } else {
       // Fallback: HTTP clear
@@ -263,7 +263,7 @@ export default function Chat() {
           setStreamText("");
           setError(null);
         })
-        .catch(() => setError("Failed to clear chat"));
+        .catch(() => setError("清空对话失败"));
     }
   }
 
@@ -282,7 +282,7 @@ export default function Chat() {
   }
 
   if (loading) {
-    return <LoadingState message="Loading chat..." />;
+    return <LoadingState message="正在加载对话..." />;
   }
 
   const hasMessages = messages.length > 0 || streamText;
@@ -292,9 +292,9 @@ export default function Chat() {
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-border shrink-0">
         <div>
-          <h1 className="text-xl font-bold text-strong">Chat</h1>
+          <h1 className="text-xl font-bold text-strong">对话</h1>
           <p className="text-sm text-muted mt-0.5">
-            {wsConnected ? "Talk to your agent directly" : "Connecting..."}
+            {wsConnected ? "直接与智能体对话" : "连接中..."}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -302,7 +302,7 @@ export default function Chat() {
           <span
             role="status"
             aria-live="polite"
-            aria-label={wsConnected ? "Connected" : "Reconnecting"}
+            aria-label={wsConnected ? "已连接" : "重连中"}
             className={`w-2 h-2 rounded-full ${wsConnected ? "bg-success" : "bg-warning animate-pulse"}`}
           />
 
@@ -315,7 +315,7 @@ export default function Chat() {
             >
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.name}{a.isDefault ? " (default)" : ""}
+                  {a.name}{a.isDefault ? "（默认）" : ""}
                 </option>
               ))}
             </select>
@@ -327,10 +327,10 @@ export default function Chat() {
           <button
             onClick={handleClear}
             className="flex items-center gap-2 px-3 py-2 bg-bg-1 border border-border-2 rounded-lg text-sm text-muted hover:text-danger hover:border-danger/30 transition-colors cursor-pointer"
-            title="Clear chat"
+            title="清空对话"
           >
             <Trash2 size={14} />
-            Clear
+            清空
           </button>
         </div>
       </div>
@@ -342,9 +342,9 @@ export default function Chat() {
             <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
               <Bot size={28} className="text-accent" />
             </div>
-            <h2 className="text-lg font-semibold text-strong mb-1">Start a conversation</h2>
+            <h2 className="text-lg font-semibold text-strong mb-1">开始对话</h2>
             <p className="text-sm text-muted max-w-sm">
-              Send a message to chat with your agent. It has access to all your configured tools.
+              发送消息与智能体对话。它可以使用已配置的工具。
             </p>
           </div>
         )}
@@ -414,7 +414,7 @@ export default function Chat() {
             value={input}
             onChange={handleTextareaInput}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="输入消息..."
             rows={1}
             disabled={sending}
             className="flex-1 bg-bg-1 border border-border-2 rounded-xl px-4 py-3 text-sm text-foreground resize-none outline-none transition-colors focus:border-accent placeholder:text-faint disabled:opacity-50 min-h-[44px] max-h-[160px]"
@@ -429,7 +429,7 @@ export default function Chat() {
           </button>
         </div>
         <p className="text-xs text-faint text-center mt-2">
-          Press Enter to send, Shift+Enter for new line
+          按 Enter 发送，Shift+Enter 换行
         </p>
       </div>
     </div>

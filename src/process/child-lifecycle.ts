@@ -151,6 +151,7 @@ export function spawnChild(
     env: mergedEnv,
     stdout: "inherit",
     stderr: "inherit",
+    windowsHide: true,
     // Own process group (setsid) so killChild can reap the whole subtree —
     // including agent-SDK CLI grandchildren — via a negative-pid group signal.
     detached: true,

@@ -36,36 +36,36 @@ interface NumberFieldDef {
 const NUMBER_FIELDS: readonly NumberFieldDef[] = [
   {
     key: "maxHops",
-    label: "Max hops",
-    description: "Path length in a returned opportunity path",
+    label: "最大跳数",
+    description: "单条机会路径允许返回的最大关系层级。",
     min: 2,
     max: 6,
   },
   {
     key: "maxPaths",
-    label: "Max paths",
-    description: "Paths rendered into the directive (query LIMIT)",
+    label: "最大路径数",
+    description: "写入指令上下文的路径数量上限。",
     min: 1,
     max: 20,
   },
   {
     key: "searchLimit",
-    label: "Search limit",
-    description: "Seed (pain) nodes to expand from",
+    label: "搜索上限",
+    description: "每次扩展的起始痛点节点数量上限。",
     min: 1,
     max: 100,
   },
   {
     key: "minDegree",
-    label: "Min degree",
-    description: "Lower degree bound on the seed node (skips leaf noise)",
+    label: "最小连接度",
+    description: "起始节点的最低连接度，用于跳过孤立噪声。",
     min: 1,
     max: 1000,
   },
   {
     key: "maxDegree",
-    label: "Max degree",
-    description: "Upper degree bound on every path node (excludes mega-hubs)",
+    label: "最大连接度",
+    description: "路径节点的最高连接度，用于排除过大的中心节点。",
     min: 1,
     max: 5000,
   },
@@ -127,7 +127,7 @@ export default function GraphSettings() {
         if (!cancelled) setConfig(res.data);
       })
       .catch(() => {
-        if (!cancelled) toastError("Failed to load graph-reasoning config.");
+        if (!cancelled) toastError("图谱推理配置加载失败。");
       });
     return () => {
       cancelled = true;
@@ -143,9 +143,9 @@ export default function GraphSettings() {
         body: JSON.stringify(config),
       });
       setConfig(res.data);
-      success("Graph-reasoning config saved.");
+      success("图谱推理配置已保存。");
     } catch {
-      toastError("Failed to save graph-reasoning config.");
+      toastError("图谱推理配置保存失败。");
     } finally {
       setSaving(false);
     }
@@ -160,11 +160,10 @@ export default function GraphSettings() {
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold text-strong m-0 mb-1">
-              Graph Reasoning
+              图谱推理
             </h3>
             <p className="text-xs text-muted m-0 leading-relaxed">
-              Multi-hop opportunity-path traversal of the Neo4j graph, injected
-              as guidance at idea seed discovery.
+              从 Neo4j 图谱中提取多跳关系路径，作为智能体分析和机会发现的辅助证据。
             </p>
           </div>
         </div>
@@ -180,7 +179,7 @@ export default function GraphSettings() {
       </div>
 
       {!config ? (
-        <p className="text-xs text-muted py-2 mt-3 ml-[50px]">Loading…</p>
+        <p className="text-xs text-muted py-2 mt-3 ml-[50px]">正在加载...</p>
       ) : (
         <div className="mt-4 ml-[50px] flex flex-col gap-2.5">
           {NUMBER_FIELDS.map((f) => (
@@ -199,7 +198,7 @@ export default function GraphSettings() {
 
           <div className="flex items-center gap-1.5 text-xs text-faint mt-1">
             <RotateCcw className="w-3 h-3" />
-            <span>Takes effect after restart.</span>
+            <span>重启后生效。</span>
           </div>
 
           <div className="flex justify-end pt-1">
@@ -210,7 +209,7 @@ export default function GraphSettings() {
               disabled={saving}
               loading={saving}
             >
-              Save
+              保存
             </Button>
           </div>
         </div>

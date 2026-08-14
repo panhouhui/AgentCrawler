@@ -18,6 +18,7 @@ import { createHNTools } from "../tools/hn";
 import { createRedditTools } from "../tools/reddit";
 import { createGithubTools } from "../tools/github";
 import { createXTimelineTools } from "../tools/x-timeline";
+import { createCrawlerTools } from "../tools/crawler-tools";
 import { createAppStoreTools } from "../tools/appstore";
 import { createPlayStoreTools } from "../tools/playstore";
 import { createGetScraperStatusTool } from "../tools/scraper-status";
@@ -87,6 +88,13 @@ export function buildWorkflowToolRegistry(
     );
     if (xTimelineTools.length > 0)
       registry = registry.withTools(xTimelineTools);
+  }
+
+  {
+    const crawlerTools = createCrawlerTools().filter((t) =>
+      allowsTool(t.name),
+    );
+    if (crawlerTools.length > 0) registry = registry.withTools(crawlerTools);
   }
 
   {
@@ -300,6 +308,13 @@ export function buildRegistryForAgent(
     );
     if (xTimelineTools.length > 0)
       registry = registry.withTools(xTimelineTools);
+  }
+
+  {
+    const crawlerTools = createCrawlerTools().filter((t) =>
+      allowsTool(t.name),
+    );
+    if (crawlerTools.length > 0) registry = registry.withTools(crawlerTools);
   }
 
   if (scraperEnabled("appstore")) {

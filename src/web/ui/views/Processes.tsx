@@ -60,10 +60,10 @@ function displayName(name: string): string {
     return labels[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
   }
   const labels: Record<string, string> = {
-    core: "Core",
-    cron: "Cron",
-    web: "Web",
-    embedding: "Embedding",
+    core: "核心服务",
+    cron: "定时任务",
+    web: "Web 服务",
+    embedding: "向量服务",
   };
   return labels[name] ?? name;
 }
@@ -86,13 +86,13 @@ function groupProcesses(
 
   const groups: ProcessGroup[] = [];
   if (infra.length > 0)
-    groups.push({ label: "Infrastructure", icon: "server", processes: infra });
+    groups.push({ label: "基础设施", icon: "server", processes: infra });
   if (agents.length > 0)
-    groups.push({ label: "Agents", icon: "bot", processes: agents });
+    groups.push({ label: "智能体", icon: "bot", processes: agents });
   if (scrapers.length > 0)
-    groups.push({ label: "Scrapers", icon: "download", processes: scrapers });
+    groups.push({ label: "爬虫", icon: "download", processes: scrapers });
   if (other.length > 0)
-    groups.push({ label: "Other", icon: "box", processes: other });
+    groups.push({ label: "其他", icon: "box", processes: other });
   return groups;
 }
 
@@ -115,20 +115,31 @@ const STATUS_BORDER: Record<string, string> = {
 
 const SYNC_CONFIG: Record<string, { bg: string; text: string; label: string }> =
   {
-    synced: { bg: "bg-success/10", text: "text-success", label: "Synced" },
-    starting: { bg: "bg-accent/10", text: "text-accent", label: "Starting" },
+    synced: { bg: "bg-success/10", text: "text-success", label: "已同步" },
+    starting: { bg: "bg-accent/10", text: "text-accent", label: "启动中" },
     restarting: {
       bg: "bg-warning/10",
       text: "text-warning",
-      label: "Restarting",
+      label: "重启中",
     },
     "crash-loop": {
       bg: "bg-danger/10",
       text: "text-danger",
-      label: "Crash loop",
+      label: "崩溃循环",
     },
-    stopped: { bg: "bg-bg-3", text: "text-muted", label: "Stopped" },
+    stopped: { bg: "bg-bg-3", text: "text-muted", label: "已停止" },
   };
+
+const TYPE_LABELS: Record<string, string> = {
+  core: "核心",
+  cron: "定时",
+  web: "Web",
+  market: "市场",
+  embedding: "向量",
+  agent: "智能体",
+  scraper: "爬虫",
+  other: "其他",
+};
 
 function TypeBadge({ type }: { type: string }) {
   const fallback = { bg: "bg-bg-3", text: "text-muted" };
@@ -141,7 +152,7 @@ function TypeBadge({ type }: { type: string }) {
         style.text,
       )}
     >
-      {type}
+      {TYPE_LABELS[type] ?? type}
     </span>
   );
 }
@@ -180,7 +191,7 @@ function BackoffCountdown({ nextRetryAt }: { nextRetryAt: number }) {
     return () => clearInterval(timer);
   }, [nextRetryAt]);
 
-  if (remaining <= 0) return <span className="text-muted">retrying...</span>;
+  if (remaining <= 0) return <span className="text-muted">重试中...</span>;
 
   return (
     <span className="text-warning font-mono tabular-nums">{remaining}s</span>
@@ -252,7 +263,7 @@ function ProcessCard({
       <div className="flex items-center gap-4 px-4 pb-2">
         <div className="flex flex-col">
           <span className="text-[10px] text-faint uppercase tracking-widest leading-none">
-            Uptime
+            运行时间
           </span>
           <span className="text-sm text-foreground font-mono mt-1">
             {proc.uptimeSeconds ? formatUptime(proc.uptimeSeconds) : "\u2014"}
@@ -261,7 +272,7 @@ function ProcessCard({
         {proc.pid > 0 && (
           <div className="flex flex-col">
             <span className="text-[10px] text-faint uppercase tracking-widest leading-none">
-              PID
+              进程号
             </span>
             <span className="text-sm text-muted font-mono mt-1">
               {proc.pid}
@@ -271,7 +282,7 @@ function ProcessCard({
         {(proc.restartCount ?? 0) > 0 && (
           <div className="flex flex-col">
             <span className="text-[10px] text-faint uppercase tracking-widest leading-none">
-              Restarts
+              重启次数
             </span>
             <span className="text-sm text-warning font-mono mt-1">
               {proc.restartCount}
@@ -284,12 +295,12 @@ function ProcessCard({
       {(isBackoff || isCrashLoop) && proc.nextRetryAt && (
         <div className="flex items-center gap-2 px-4 pb-2">
           <span className="text-[10px] text-faint uppercase tracking-widest">
-            Next retry
+            下次重试
           </span>
           <BackoffCountdown nextRetryAt={proc.nextRetryAt} />
           {proc.backoffMs && proc.backoffMs > 1000 && (
             <span className="text-[10px] text-faint">
-              (backoff {Math.round(proc.backoffMs / 1000)}s)
+              （退避 {Math.round(proc.backoffMs / 1000)} 秒）
             </span>
           )}
         </div>
@@ -299,7 +310,7 @@ function ProcessCard({
       {isCrashLoop && !proc.nextRetryAt && (
         <div className="flex items-center gap-2 px-4 pb-2">
           <span className="text-[11px] text-danger">
-            Stopped — exceeded max restarts
+            已停止，超过最大重启次数
           </span>
         </div>
       )}
@@ -321,7 +332,7 @@ function ProcessCard({
             loading={pending}
             className="text-success text-xs"
           >
-            Start
+            启动
           </Button>
         )}
         {isOrchestrated && isCrashLoop && (
@@ -333,7 +344,7 @@ function ProcessCard({
             loading={pending}
             className="text-success text-xs"
           >
-            Reset & Start
+            重置并启动
           </Button>
         )}
         {isOrchestrated && !isStopped && !isCrashLoop && (
@@ -345,7 +356,7 @@ function ProcessCard({
             loading={pending}
             className="text-danger text-xs"
           >
-            Stop
+            停止
           </Button>
         )}
         <Button
@@ -356,7 +367,7 @@ function ProcessCard({
           loading={pending}
           className="text-xs"
         >
-          Restart
+          重启
         </Button>
       </div>
     </div>
@@ -413,18 +424,18 @@ function HealthBar({ processes }: { processes: readonly ProcessInfo[] }) {
         <div className="flex items-center gap-5">
           <span className="flex items-center gap-1.5 text-xs text-muted">
             <span className="w-2 h-2 rounded-full bg-success" />
-            {alive} alive
+            {alive} 存活
           </span>
           {stale > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-muted">
               <span className="w-2 h-2 rounded-full bg-warning" />
-              {stale} stale
+              {stale} 心跳过期
             </span>
           )}
           {dead > 0 && (
             <span className="flex items-center gap-1.5 text-xs text-muted">
               <span className="w-2 h-2 rounded-full bg-danger" />
-              {dead} dead
+              {dead} 已停止
             </span>
           )}
         </div>
@@ -465,13 +476,11 @@ function CrashLoopBanner({ processes }: { processes: readonly ProcessInfo[] }) {
       <span className="text-danger text-lg leading-none mt-0.5">!</span>
       <div>
         <p className="text-danger font-semibold text-sm m-0">
-          Crash loop detected
+          检测到崩溃循环
         </p>
         <p className="text-danger/80 text-xs mt-1 m-0">
           {crashLooping.map((p) => displayName(p.name)).join(", ")}{" "}
-          {crashLooping.length === 1 ? "has" : "have"} exceeded the maximum
-          restart threshold and will not be retried automatically. Use
-          &quot;Reset &amp; Start&quot; to manually recover.
+          已超过最大重启阈值，不会自动重试。请使用“重置并启动”手动恢复。
         </p>
       </div>
     </div>
@@ -485,7 +494,7 @@ function RestartHistory({ events }: { events: readonly RestartEvent[] }) {
     <div className="mt-8">
       <div className="flex items-center gap-3 mb-3 px-1">
         <h3 className="text-xs uppercase tracking-[0.12em] text-faint font-semibold m-0">
-          Restart History
+          重启历史
         </h3>
         <span className="text-[11px] font-mono text-muted">
           {events.length}
@@ -496,9 +505,9 @@ function RestartHistory({ events }: { events: readonly RestartEvent[] }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left text-[11px] text-faint uppercase tracking-widest">
-              <th className="px-4 py-2.5 font-semibold">Process</th>
-              <th className="px-4 py-2.5 font-semibold">Time</th>
-              <th className="px-4 py-2.5 font-semibold">Reason</th>
+              <th className="px-4 py-2.5 font-semibold">进程</th>
+              <th className="px-4 py-2.5 font-semibold">时间</th>
+              <th className="px-4 py-2.5 font-semibold">原因</th>
             </tr>
           </thead>
           <tbody>
@@ -522,7 +531,11 @@ function RestartHistory({ events }: { events: readonly RestartEvent[] }) {
                       ev.reason === "started" && "bg-success/10 text-success",
                     )}
                   >
-                    {ev.reason}
+                    {ev.reason === "crash"
+                      ? "崩溃"
+                      : ev.reason === "manual"
+                        ? "手动"
+                        : "启动"}
                   </span>
                 </td>
               </tr>
@@ -558,7 +571,7 @@ export default function Processes() {
 
   const processes = processesResult?.data ?? [];
   const [actionError, setActionError] = useState("");
-  const error = actionError || (fetchError ? "Failed to load processes" : "");
+  const error = actionError || (fetchError ? "进程加载失败" : "");
 
   const detectRestartEvents = useCallback((current: readonly ProcessInfo[]) => {
     const prev = prevRef.current;
@@ -625,7 +638,9 @@ export default function Processes() {
       setActionError("");
       setTimeout(refetch, action === "stop" ? 1000 : 2000);
     } catch {
-      setActionError(`Failed to ${action} ${name}`);
+      const actionLabel =
+        action === "restart" ? "重启" : action === "stop" ? "停止" : "启动";
+      setActionError(`${actionLabel} ${name} 失败`);
     }
   }
 
@@ -638,11 +653,11 @@ export default function Processes() {
   return (
     <div className="max-w-[1200px]">
       <PageHeader
-        title="Processes"
+        title="进程"
         count={processes.length}
         actions={
           <Button variant="secondary" size="sm" onClick={refetch}>
-            Refresh
+            刷新
           </Button>
         }
       />
@@ -658,7 +673,7 @@ export default function Processes() {
       <HealthBar processes={processes} />
 
       {processes.length === 0 && !error && (
-        <EmptyState description="No processes have registered yet." />
+        <EmptyState description="暂无已注册进程。" />
       )}
 
       {groups.map((g) => {

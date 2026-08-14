@@ -31,7 +31,7 @@ function RestartNotice() {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-medium text-warning bg-warning-subtle px-1.5 py-0.5 rounded-full">
       <RotateCcw className="w-2.5 h-2.5" />
-      Takes effect after restart
+      重启后生效
     </span>
   );
 }
@@ -49,12 +49,11 @@ function MemoryBackendField({
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <div className="text-xs font-medium text-foreground flex items-center gap-2">
-          Memory Backend
+          记忆后端
           <RestartNotice />
         </div>
         <div className="text-xs text-muted mt-0.5">
-          Storage backend for scraped-signal memory. `qdrant` is the live default; `mem0` is the
-          phase-2 backend.
+          用于保存爬虫信号记忆的存储后端。qdrant 是当前默认后端，mem0 用于后续阶段。
         </div>
       </div>
       <select
@@ -83,12 +82,11 @@ function DimensionsField({
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
         <div className="text-xs font-medium text-foreground flex items-center gap-2">
-          Embeddings Dimensions
+          向量维度
           <RestartNotice />
         </div>
         <div className="text-xs text-muted mt-0.5">
-          Vector size — must match the Qdrant collection. Changing this requires a full re-index of
-          all stored vectors.
+          向量维度必须与 Qdrant 集合一致；修改后需要完整重建所有向量索引。
         </div>
       </div>
       <input
@@ -126,7 +124,7 @@ export default function EmbeddingsMemorySettings() {
         setBackendDraft(res.data.memory.backend);
         setDimsDraft(res.data.embeddings.dimensions);
       } catch {
-        if (!cancelled) toastError("Failed to load embeddings & memory config.");
+        if (!cancelled) toastError("向量与记忆配置加载失败。");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -149,9 +147,9 @@ export default function EmbeddingsMemorySettings() {
       setState((prev) =>
         prev ? { ...prev, memory: { backend: backendDraft, source: "override" } } : prev,
       );
-      success("Memory backend saved. Restart to apply.");
+      success("记忆后端已保存，重启后生效。");
     } catch {
-      toastError("Failed to save memory backend.");
+      toastError("记忆后端保存失败。");
     } finally {
       setSavingBackend(false);
     }
@@ -166,14 +164,14 @@ export default function EmbeddingsMemorySettings() {
       });
       setState((prev) => (prev ? { ...prev, embeddings: { dimensions: dimsDraft } } : prev));
       setConfirmReindex(false);
-      success("Embeddings dimensions changed. A re-index is required.");
+      success("向量维度已修改，需要重建索引。");
     } catch (err) {
       // 409 = needs confirmation; any other = generic failure.
       const status = (err as { status?: number }).status;
       if (status === 409) {
-        toastError("Confirm the re-index to change dimensions.");
+        toastError("请先确认需要重建索引后再修改维度。");
       } else {
-        toastError("Failed to change embeddings dimensions.");
+        toastError("向量维度修改失败。");
       }
     } finally {
       setSavingDims(false);
@@ -181,14 +179,14 @@ export default function EmbeddingsMemorySettings() {
   }
 
   if (loading || state === null) {
-    return <p className="text-xs text-muted py-2">Loading embeddings & memory config…</p>;
+    return <p className="text-xs text-muted py-2">正在加载向量与记忆配置...</p>;
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2">
         <Database className="w-4 h-4 text-muted" />
-        <h3 className="text-sm font-semibold text-foreground">Embeddings &amp; Memory</h3>
+        <h3 className="text-sm font-semibold text-foreground">向量与记忆</h3>
       </div>
 
       <div className="bg-bg-2 border border-border rounded-lg p-3 flex flex-col gap-3">
@@ -205,7 +203,7 @@ export default function EmbeddingsMemorySettings() {
               onClick={() => setBackendDraft(state.memory.backend)}
               disabled={savingBackend}
             >
-              Cancel
+              取消
             </Button>
             <Button
               variant="primary"
@@ -214,7 +212,7 @@ export default function EmbeddingsMemorySettings() {
               disabled={savingBackend}
               loading={savingBackend}
             >
-              Save
+              保存
             </Button>
           </div>
         )}
@@ -228,9 +226,9 @@ export default function EmbeddingsMemorySettings() {
             <div className="flex items-start gap-2 text-xs text-warning bg-warning-subtle rounded-md p-2">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
-                Changing dimensions from <strong>{state.embeddings.dimensions}</strong> to{" "}
-                <strong>{dimsDraft}</strong> invalidates every stored vector. The Qdrant collection
-                must be dropped and fully re-indexed before search works again.
+                将维度从 <strong>{state.embeddings.dimensions}</strong> 改为{" "}
+                <strong>{dimsDraft}</strong> 会让已有向量失效。必须重建 Qdrant 集合并重新索引后，
+                检索才能恢复正常。
               </span>
             </div>
             <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer">
@@ -240,7 +238,7 @@ export default function EmbeddingsMemorySettings() {
                 onChange={(e) => setConfirmReindex(e.target.checked)}
                 className="accent-accent"
               />
-              I understand this requires a full Qdrant re-index.
+              我已确认需要完整重建 Qdrant 索引。
             </label>
             <div className="flex justify-end gap-2 pt-1">
               <Button
@@ -252,7 +250,7 @@ export default function EmbeddingsMemorySettings() {
                 }}
                 disabled={savingDims}
               >
-                Cancel
+                取消
               </Button>
               <Button
                 variant="danger"
@@ -261,7 +259,7 @@ export default function EmbeddingsMemorySettings() {
                 disabled={savingDims || !confirmReindex}
                 loading={savingDims}
               >
-                Change &amp; Require Re-index
+                修改并标记需要重建索引
               </Button>
             </div>
           </div>

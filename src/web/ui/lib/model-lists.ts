@@ -62,10 +62,17 @@ export const OPENCODE_MODELS: readonly string[] = [
   "hy3-preview",
 ];
 
+export const MINIMAX_MODELS: readonly string[] = [
+  "MiniMax-M2.7",
+  "MiniMax-M2.7-highspeed",
+  "MiniMax-M2.5",
+];
+
 export const PROVIDER_LABELS: Readonly<Record<string, string>> = {
   "agent-sdk": "Agent SDK",
   anthropic: "Anthropic (OAuth)",
   openrouter: "OpenRouter",
-  alibaba: "Alibaba ModelStudio",
+  alibaba: "阿里云 ModelStudio",
+  minimax: "MiniMax",
   opencode: "OpenCode",
 };

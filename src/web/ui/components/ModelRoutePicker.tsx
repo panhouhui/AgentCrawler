@@ -5,6 +5,7 @@ import {
   ANTHROPIC_MODELS,
   AGENT_SDK_MODELS,
   ALIBABA_MODEL_GROUPS,
+  MINIMAX_MODELS,
   OPENCODE_MODELS,
   PROVIDER_LABELS,
 } from "../lib/model-lists";
@@ -48,7 +49,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
         }
       })
       .catch(() => {
-        if (!cancelled) toastError(`Failed to load route for ${label}.`);
+        if (!cancelled) toastError(`${label} 的模型路由加载失败。`);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -68,9 +69,9 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           method: "PUT",
           body: JSON.stringify({ provider: next.provider, model: next.model }),
         });
-        success(`${label} saved.`);
+        success(`${label} 已保存。`);
       } catch {
-        toastError(`Failed to save ${label}.`);
+        toastError(`${label} 保存失败。`);
       }
     }, 500);
   }
@@ -86,6 +87,8 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
       model = ALIBABA_MODEL_GROUPS[0]?.models[0] ?? "";
     } else if (provider === "opencode") {
       model = OPENCODE_MODELS[0] ?? "";
+    } else if (provider === "minimax") {
+      model = MINIMAX_MODELS[0] ?? "";
     }
     const next: ModelRoute = { provider, model };
     setRoute(next);
@@ -103,7 +106,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
     return (
       <div className="flex items-center gap-3 py-2">
         <span className="text-sm text-muted min-w-[160px]">{label}</span>
-        <span className="text-xs text-faint">Loading...</span>
+        <span className="text-xs text-faint">加载中...</span>
       </div>
     );
   }
@@ -117,7 +120,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
         className={SELECT_CLS}
         value={route.provider}
         onChange={(e) => handleProviderChange(e.target.value)}
-        aria-label={`${label} provider`}
+        aria-label={`${label} 服务商`}
       >
         {Object.entries(PROVIDER_LABELS).map(([value, displayLabel]) => (
           <option key={value} value={value}>
@@ -132,7 +135,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           className={SELECT_CLS}
           value={route.model}
           onChange={(e) => handleModelChange(e.target.value)}
-          aria-label={`${label} model`}
+          aria-label={`${label} 模型`}
         >
           {AGENT_SDK_MODELS.map((m) => (
             <option key={m} value={m}>
@@ -145,7 +148,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           className={SELECT_CLS}
           value={route.model}
           onChange={(e) => handleModelChange(e.target.value)}
-          aria-label={`${label} model`}
+          aria-label={`${label} 模型`}
         >
           {ANTHROPIC_MODELS.map((m) => (
             <option key={m} value={m}>
@@ -158,7 +161,7 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           className={SELECT_CLS}
           value={route.model}
           onChange={(e) => handleModelChange(e.target.value)}
-          aria-label={`${label} model`}
+          aria-label={`${label} 模型`}
         >
           {ALIBABA_MODEL_GROUPS.map((group) => (
             <optgroup key={group.label} label={group.label}>
@@ -175,9 +178,22 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           className={SELECT_CLS}
           value={route.model}
           onChange={(e) => handleModelChange(e.target.value)}
-          aria-label={`${label} model`}
+          aria-label={`${label} 模型`}
         >
           {OPENCODE_MODELS.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      ) : route.provider === "minimax" ? (
+        <select
+          className={SELECT_CLS}
+          value={route.model}
+          onChange={(e) => handleModelChange(e.target.value)}
+          aria-label={`${label} 模型`}
+        >
+          {MINIMAX_MODELS.map((m) => (
             <option key={m} value={m}>
               {m}
             </option>
@@ -189,10 +205,10 @@ export function ModelRoutePicker({ processKey, label }: ModelRoutePickerProps) {
           type="text"
           className={SELECT_CLS}
           style={{ minWidth: "220px" }}
-          placeholder="e.g. deepseek/deepseek-chat-v3.1"
+          placeholder="例如：deepseek/deepseek-chat-v3.1"
           value={route.model}
           onChange={(e) => handleModelChange(e.target.value)}
-          aria-label={`${label} model`}
+          aria-label={`${label} 模型`}
         />
       )}
     </div>

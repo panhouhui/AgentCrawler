@@ -1,12 +1,8 @@
 import { Hono } from "hono";
-import { exec } from "child_process";
-import { promisify } from "util";
 import * as os from "os";
 import { createLogger } from "../../logger";
 
 const logger = createLogger("web");
-
-const execAsync = promisify(exec);
 
 export const systemRoutes = new Hono();
 
@@ -25,6 +21,56 @@ interface DiskInfo {
   used: number;
   available: number;
   percentage: number;
+}
+
+interface CpuSnapshot {
+  readonly idle: number;
+  readonly total: number;
+}
+
+let previousCpuSnapshot: CpuSnapshot | null = null;
+
+async function spawnText(cmd: readonly string[], timeoutMs = 5_000): Promise<string | null> {
+  try {
+    const proc = Bun.spawn([...cmd], {
+      stdout: "pipe",
+      stderr: "pipe",
+      windowsHide: true,
+    });
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      proc.kill();
+    }, timeoutMs);
+    const [stdout, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      proc.exited,
+    ]).finally(() => clearTimeout(timer));
+    if (timedOut || exitCode !== 0) return null;
+    return stdout;
+  } catch {
+    return null;
+  }
+}
+
+function readCpuSnapshot(): CpuSnapshot {
+  let idle = 0;
+  let total = 0;
+  for (const cpu of os.cpus()) {
+    idle += cpu.times.idle;
+    total += Object.values(cpu.times).reduce((sum, value) => sum + value, 0);
+  }
+  return { idle, total };
+}
+
+function parseJsonArray<T>(text: string | null): T[] {
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text.trim()) as T | T[];
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return [];
+  }
 }
 
 async function getSystemMetrics() {
@@ -64,26 +110,20 @@ async function getSystemMetrics() {
 }
 
 async function getCPUUsage(): Promise<number> {
-  try {
-    const { stdout } = await execAsync(
-      "top -bn1 | grep 'Cpu(s)' | sed 's/.*, *\\([0-9.]*\\)%* id.*/\\1/' | awk '{print 100 - $1}'",
-    );
-    return parseFloat(stdout.trim()) || 0;
-  } catch {
-    // Fallback method
-    const cpus = os.cpus();
-    let totalIdle = 0;
-    let totalTick = 0;
+  const current = readCpuSnapshot();
+  const previous = previousCpuSnapshot;
+  previousCpuSnapshot = current;
 
-    cpus.forEach((cpu) => {
-      for (const type in cpu.times) {
-        totalTick += cpu.times[type as keyof typeof cpu.times];
-      }
-      totalIdle += cpu.times.idle;
-    });
-
-    return 100 - ~~((100 * totalIdle) / totalTick);
+  if (previous) {
+    const idleDelta = current.idle - previous.idle;
+    const totalDelta = current.total - previous.total;
+    if (totalDelta > 0) {
+      return Math.max(0, Math.min(100, 100 - (idleDelta / totalDelta) * 100));
+    }
   }
+
+  const idlePct = current.total > 0 ? (current.idle / current.total) * 100 : 0;
+  return Math.max(0, Math.min(100, 100 - idlePct));
 }
 
 async function getDetailedMemoryInfo(): Promise<{
@@ -94,8 +134,22 @@ async function getDetailedMemoryInfo(): Promise<{
   buffers: number;
   cached: number;
 }> {
+  if (process.platform === "win32") {
+    const total = os.totalmem();
+    const free = os.freemem();
+    return {
+      total,
+      free,
+      available: free,
+      used: total - free,
+      buffers: 0,
+      cached: 0,
+    };
+  }
+
   try {
-    const { stdout } = await execAsync("cat /proc/meminfo");
+    const stdout = await spawnText(["cat", "/proc/meminfo"]);
+    if (!stdout) throw new Error("meminfo unavailable");
     const lines = stdout.split("\n");
     const memInfo: any = {};
 
@@ -145,11 +199,48 @@ async function getDetailedMemoryInfo(): Promise<{
 }
 
 async function getTopProcesses(): Promise<ProcessInfo[]> {
+  if (process.platform === "win32") {
+    const output = await spawnText([
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      "Get-Process | Sort-Object -Property WorkingSet64 -Descending | Select-Object -First 20 Id,ProcessName,CPU,WorkingSet64 | ConvertTo-Json -Compress",
+    ], 8_000);
+    const rows = parseJsonArray<{
+      readonly Id?: number;
+      readonly ProcessName?: string;
+      readonly CPU?: number;
+      readonly WorkingSet64?: number;
+    }>(output);
+
+    const totalMemory = os.totalmem();
+    return rows
+      .filter((row) => row.Id !== undefined && row.ProcessName)
+      .map((row) => {
+        const memoryBytes = Number(row.WorkingSet64 ?? 0);
+        return {
+          pid: Number(row.Id),
+          name: String(row.ProcessName).slice(0, 32),
+          cpu: Math.max(0, Math.min(100, Number(row.CPU ?? 0))),
+          memory: totalMemory > 0 ? (memoryBytes / totalMemory) * 100 : 0,
+          memoryMB: memoryBytes / 1024 / 1024,
+        };
+      });
+  }
+
   try {
     // Get top processes by CPU and memory
-    const { stdout } = await execAsync(
-      'ps aux --sort=-%cpu,-%mem | head -20 | awk \'NR>1 {print $2 "|" $11 "|" $3 "|" $4 "|" $6}\'',
+    const stdout = await spawnText(
+      [
+        "sh",
+        "-lc",
+        "ps aux --sort=-%cpu,-%mem | head -20 | awk 'NR>1 {print $2 \"|\" $11 \"|\" $3 \"|\" $4 \"|\" $6}'",
+      ],
     );
+    if (!stdout) throw new Error("process list unavailable");
 
     const processes: ProcessInfo[] = [];
     const lines = stdout.trim().split("\n");
@@ -178,11 +269,51 @@ async function getTopProcesses(): Promise<ProcessInfo[]> {
 }
 
 async function getDiskUsage(): Promise<DiskInfo[]> {
+  if (process.platform === "win32") {
+    const output = await spawnText([
+      "powershell.exe",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      "Get-CimInstance Win32_LogicalDisk -Filter \"DriveType=3\" | Select-Object DeviceID,FileSystem,Size,FreeSpace | ConvertTo-Json -Compress",
+    ], 8_000);
+    const rows = parseJsonArray<{
+      readonly DeviceID?: string;
+      readonly FileSystem?: string;
+      readonly Size?: number;
+      readonly FreeSpace?: number;
+    }>(output);
+
+    return rows
+      .filter((row) => Number(row.Size ?? 0) > 0)
+      .map((row, index) => {
+        const total = Number(row.Size ?? 0);
+        const available = Number(row.FreeSpace ?? 0);
+        const used = Math.max(0, total - available);
+        const diskLabel = `本地磁盘 ${index + 1}`;
+        return {
+          filesystem: row.FileSystem || "本地磁盘",
+          mount: diskLabel,
+          total,
+          used,
+          available,
+          percentage: total > 0 ? (used / total) * 100 : 0,
+        };
+      });
+  }
+
   try {
     // -P for POSIX output, -x to exclude pseudo filesystems
-    const { stdout } = await execAsync(
-      'df -P -k 2>/dev/null | awk \'NR>1 && $1 !~ /^(tmpfs|devtmpfs|overlay|shm|udev|none)/ {print $1 "|" $6 "|" $2 "|" $3 "|" $4 "|" $5}\'',
+    const stdout = await spawnText(
+      [
+        "sh",
+        "-lc",
+        "df -P -k 2>/dev/null | awk 'NR>1 && $1 !~ /^(tmpfs|devtmpfs|overlay|shm|udev|none)/ {print $1 \"|\" $6 \"|\" $2 \"|\" $3 \"|\" $4 \"|\" $5}'",
+      ],
     );
+    if (!stdout) throw new Error("disk usage unavailable");
 
     const disks: DiskInfo[] = [];
     const lines = stdout.trim().split("\n");

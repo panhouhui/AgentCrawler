@@ -103,7 +103,7 @@ export default function Workflows() {
         dispatch({ type: "MARK_SAVED", id: res.data.id });
       }
     } catch {
-      setSaveError("Failed to save workflow");
+      setSaveError("保存工作流失败");
     } finally {
       setSaving(false);
     }
@@ -172,7 +172,7 @@ export default function Workflows() {
       if (loadWorkflowFromJson(text)) {
         setShowImportModal(false);
       } else {
-        setImportError("Invalid workflow JSON file");
+        setImportError("工作流 JSON 文件无效");
       }
     };
     reader.readAsText(file);
@@ -181,13 +181,13 @@ export default function Workflows() {
 
   function handleImportPaste() {
     if (!importJson.trim()) {
-      setImportError("Paste workflow JSON first");
+      setImportError("请先粘贴工作流 JSON");
       return;
     }
     if (loadWorkflowFromJson(importJson)) {
       setShowImportModal(false);
     } else {
-      setImportError("Invalid workflow JSON — must have name, nodes, edges");
+      setImportError("工作流 JSON 无效，必须包含 name、nodes、edges");
     }
   }
 
@@ -205,29 +205,29 @@ export default function Workflows() {
             aria-hidden="true"
             className={`w-2 h-2 rounded-full ${state.isDirty ? "bg-yellow-400" : "bg-green-400"}`}
           />
-          <span className="sr-only">{state.isDirty ? "Unsaved changes" : "All changes saved"}</span>
+          <span className="sr-only">{state.isDirty ? "有未保存修改" : "所有修改已保存"}</span>
         </span>
 
         <input
           type="text"
-          aria-label="Workflow name"
+          aria-label="工作流名称"
           value={state.name}
           onChange={(e) =>
             dispatch({ type: "SET_NAME", name: e.target.value })
           }
           className="flex-1 max-w-[260px] px-3 py-1.5 bg-bg border border-border-2 rounded-md text-sm font-semibold text-strong outline-none focus:border-accent transition-colors"
-          placeholder="Workflow name..."
+          placeholder="工作流名称..."
         />
 
         <input
           type="text"
-          aria-label="Workflow description"
+          aria-label="工作流描述"
           value={state.description}
           onChange={(e) =>
             dispatch({ type: "SET_DESCRIPTION", description: e.target.value })
           }
           className="flex-1 max-w-[360px] max-lg:hidden px-3 py-1.5 bg-bg border border-border-2 rounded-md text-sm text-muted outline-none focus:border-accent transition-colors"
-          placeholder="Description (optional)..."
+          placeholder="描述（可选）..."
         />
 
         <div className="ml-auto flex items-center gap-2">
@@ -238,7 +238,7 @@ export default function Workflows() {
           {totalErrors > 0 && (
             <span className="flex items-center gap-1 text-xs text-orange-400 font-medium">
               <AlertCircle size={13} />
-              {totalErrors} error{totalErrors !== 1 ? "s" : ""}
+              {totalErrors} 个错误
             </span>
           )}
 
@@ -247,7 +247,7 @@ export default function Workflows() {
               type="button"
               disabled={!canUndo}
               onClick={() => dispatch({ type: "UNDO" })}
-              title="Undo (Cmd+Z)"
+              title="撤销 (Cmd+Z)"
               className="w-7 h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-bg-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer"
             >
               <Undo2 size={14} />
@@ -256,7 +256,7 @@ export default function Workflows() {
               type="button"
               disabled={!canRedo}
               onClick={() => dispatch({ type: "REDO" })}
-              title="Redo (Cmd+Shift+Z)"
+              title="重做 (Cmd+Shift+Z)"
               className="w-7 h-7 flex items-center justify-center rounded text-muted hover:text-foreground hover:bg-bg-2 transition-colors disabled:opacity-30 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer"
             >
               <Redo2 size={14} />
@@ -265,7 +265,7 @@ export default function Workflows() {
 
           <Button variant="ghost" size="sm" onClick={handleNew}>
             <Plus size={14} />
-            New
+            新建
           </Button>
           <Button
             variant="secondary"
@@ -273,23 +273,23 @@ export default function Workflows() {
             onClick={() => setShowList(true)}
           >
             <FolderOpen size={14} />
-            Load
+            加载
           </Button>
           <Button variant="ghost" size="sm" onClick={handleImportClick}>
             <Upload size={14} />
-            Import
+            导入
           </Button>
           <Button variant="ghost" size="sm" onClick={handleExport}>
             <Download size={14} />
-            Export
+            导出
           </Button>
           <button
             type="button"
             onClick={() => dispatch({ type: "SET_ENABLED", enabled: !state.enabled })}
-            title={state.enabled ? "Click to disable workflow trigger" : "Click to enable workflow trigger"}
+            title={state.enabled ? "点击停用工作流触发器" : "点击启用工作流触发器"}
             className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors cursor-pointer ${state.enabled ? "bg-green-500/15 border-green-500/40 text-green-500 hover:bg-green-500/25" : "bg-bg border-border-2 text-muted hover:text-foreground hover:border-border-hover"}`}
           >
-            {state.enabled ? "Enabled" : "Disabled"}
+            {state.enabled ? "已启用" : "已停用"}
           </button>
           <Button
             variant="primary"
@@ -298,7 +298,7 @@ export default function Workflows() {
             onClick={handleSave}
           >
             <Save size={14} />
-            Save
+            保存
           </Button>
           <RunControls
             workflowId={state.id}
@@ -369,31 +369,31 @@ export default function Workflows() {
         dispatch={dispatch}
       />
 
-      {/* Import modal — file upload or paste JSON */}
-      <Modal open={showImportModal} onClose={() => setShowImportModal(false)} title="Import Workflow">
+      {/* 导入弹窗：上传文件或粘贴 JSON */}
+      <Modal open={showImportModal} onClose={() => setShowImportModal(false)} title="导入工作流">
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-muted mb-2">Upload JSON file</label>
+            <label className="block text-xs font-medium text-muted mb-2">上传 JSON 文件</label>
             <button
               type="button"
               onClick={() => importRef.current?.click()}
               className="w-full py-3 px-4 border-2 border-dashed border-border-2 rounded-lg text-sm text-muted hover:border-accent hover:text-foreground transition-colors cursor-pointer bg-transparent flex items-center justify-center gap-2"
             >
               <Upload size={16} />
-              Choose .json file
+              选择 .json 文件
             </button>
           </div>
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted">or</span>
+            <span className="text-xs text-muted">或</span>
             <div className="flex-1 h-px bg-border" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted mb-2">Paste JSON</label>
+            <label className="block text-xs font-medium text-muted mb-2">粘贴 JSON</label>
             <textarea
               value={importJson}
               onChange={(e) => { setImportJson(e.target.value); setImportError(""); }}
-              placeholder='{"name": "My Workflow", "nodes": [...], "edges": [...]}'
+              placeholder='{"name": "我的工作流", "nodes": [...], "edges": [...]}'
               className="w-full h-40 px-3 py-2 bg-bg border border-border-2 rounded-lg text-sm text-foreground font-mono resize-none outline-none focus:border-accent transition-colors placeholder:text-muted/50"
             />
           </div>
@@ -402,11 +402,11 @@ export default function Workflows() {
           )}
           <div className="flex items-center justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" onClick={() => setShowImportModal(false)}>
-              Cancel
+              取消
             </Button>
             <Button variant="primary" size="sm" onClick={handleImportPaste} disabled={!importJson.trim()}>
               <ClipboardPaste size={14} />
-              Import
+              导入
             </Button>
           </div>
         </div>

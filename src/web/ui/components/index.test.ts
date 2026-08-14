@@ -12,7 +12,6 @@ const EXPECTED_EXPORTS = [
   "ConfirmDelete",
   "SearchBar",
   "FilterTabs",
-  "FeedRow",
   "Button",
   "Input",
   "FormField",

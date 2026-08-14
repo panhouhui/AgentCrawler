@@ -9,8 +9,8 @@ interface ConfirmDeleteProps {
 
 export function ConfirmDelete({
   onConfirm,
-  buttonLabel = "Delete",
-  confirmLabel = "Are you sure?",
+  buttonLabel = "删除",
+  confirmLabel = "确定吗？",
 }: ConfirmDeleteProps) {
   const [confirming, setConfirming] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,7 +38,7 @@ export function ConfirmDelete({
           disabled={loading}
           loading={loading}
         >
-          Confirm
+          确认
         </Button>
         <Button
           variant="secondary"
@@ -46,7 +46,7 @@ export function ConfirmDelete({
           onClick={() => setConfirming(false)}
           disabled={loading}
         >
-          Cancel
+          取消
         </Button>
       </span>
     );

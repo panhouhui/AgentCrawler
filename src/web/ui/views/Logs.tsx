@@ -40,6 +40,13 @@ const LEVEL_NUM: Record<LogLevel, number> = {
   error: 3,
 };
 
+const LEVEL_LABEL: Record<LogLevel, string> = {
+  debug: "调试",
+  info: "信息",
+  warn: "警告",
+  error: "错误",
+};
+
 type JsonTokenType = "key" | "string" | "number" | "bool" | "plain";
 interface JsonToken { type: JsonTokenType; text: string }
 
@@ -159,11 +166,11 @@ function LogEntryRow({
         <span className="lg-message-text">
           {entry.message}
           {hasData && !isExpanded && (
-            <span className="lg-expand-hint">{"▸"} data</span>
+            <span className="lg-expand-hint">{"▸"} 数据</span>
           )}
           {hasData && isExpanded && (
             <span className="lg-expand-hint lg-collapse-hint">
-              {"▾"} hide
+              {"▾"} 收起
             </span>
           )}
         </span>
@@ -372,16 +379,16 @@ export default function Logs() {
       {/* Compact header */}
       <div className="lg-header">
         <div className="lg-header-left">
-          <h1 className="lg-title">Logs</h1>
+          <h1 className="lg-title">日志</h1>
         </div>
         <div className="flex items-center gap-2">
-          <span className="lg-count">{filteredWithIds.length} rows</span>
+          <span className="lg-count">{filteredWithIds.length} 行</span>
           <button
             className={cn("lg-live-badge", isPaused ? "paused" : "live")}
             onClick={() => setIsPaused((p) => !p)}
           >
             <span className="lg-live-dot" />
-            {isPaused ? "Paused" : "Live"}
+            {isPaused ? "已暂停" : "实时"}
           </button>
         </div>
       </div>
@@ -395,7 +402,7 @@ export default function Logs() {
             onClick={() => setFilter(lv)}
           >
             <span className="lg-level-pill-dot" />
-            {lv.charAt(0).toUpperCase() + lv.slice(1)}
+            {LEVEL_LABEL[lv]}
             <span className="lg-level-pill-count">{counts[lv]}</span>
           </button>
         ))}
@@ -410,7 +417,7 @@ export default function Logs() {
           <input
             ref={searchRef}
             type="text"
-            placeholder="Search...  /"
+            placeholder="搜索...  /"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -430,7 +437,7 @@ export default function Logs() {
             value={selectedProcess}
             onChange={(e) => setSelectedProcess(e.target.value)}
           >
-            <option value="">All processes</option>
+            <option value="">所有进程</option>
             {processes.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -445,7 +452,7 @@ export default function Logs() {
             value={selectedContext}
             onChange={(e) => setSelectedContext(e.target.value)}
           >
-            <option value="">All contexts</option>
+            <option value="">所有上下文</option>
             {contexts.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -463,7 +470,7 @@ export default function Logs() {
               if (e.target.checked) setNewLogCount(0);
             }}
           />
-          Auto-scroll
+          自动滚动
         </label>
       </div>
 
@@ -474,17 +481,17 @@ export default function Logs() {
             <div className="lg-empty-icon">{"⚙"}</div>
             <div className="lg-empty-text">
               {debouncedSearch
-                ? `No logs matching "${debouncedSearch}"`
-                : "No log entries at this level"}
+                ? `没有匹配“${debouncedSearch}”的日志`
+                : "当前级别暂无日志"}
             </div>
           </div>
         </div>
       ) : (
         <div className="lg-container">
           <div className="lg-col-header">
-            <span>Time</span>
-            <span>Level</span>
-            <span>Message</span>
+            <span>时间</span>
+            <span>级别</span>
+            <span>消息</span>
           </div>
           <div
             className="lg-scroll-area"
@@ -503,7 +510,7 @@ export default function Logs() {
 
           {newLogCount > 0 && !autoScroll && (
             <button className="lg-new-logs" onClick={jumpToBottom}>
-              {"↓"} {newLogCount} new log{newLogCount > 1 ? "s" : ""}
+              {"↓"} {newLogCount} 条新日志
             </button>
           )}
         </div>

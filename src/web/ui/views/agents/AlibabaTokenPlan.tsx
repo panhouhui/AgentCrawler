@@ -22,16 +22,16 @@ interface CredentialField {
 const CREDENTIAL_FIELDS: readonly CredentialField[] = [
   {
     key: "ALIBABA_API_KEY",
-    label: "API Key",
-    description: "Your Alibaba ModelStudio token-plan API key.",
+    label: "API 密钥",
+    description: "阿里云 ModelStudio token-plan API 密钥。",
     type: "password",
     required: true,
   },
   {
     key: "ALIBABA_BASE_URL",
-    label: "Base URL (optional)",
+    label: "Base URL（可选）",
     description:
-      "Defaults to the international token-plan host. Only change this for a different region.",
+      "默认使用国际版 token-plan 地址。只有切换区域时才需要修改。",
     type: "text",
     required: false,
     placeholder: "https://token-plan.ap-southeast-1.maas.aliyuncs.com",
@@ -74,7 +74,7 @@ function CredentialRow({
       setValue("");
       onSaved(field.key);
     } catch {
-      setError("Failed to save. Please try again.");
+      setError("保存失败，请重试。");
     } finally {
       setSaving(false);
     }
@@ -87,7 +87,7 @@ function CredentialRow({
       await apiFetch(`/api/secrets/${field.key}`, { method: "DELETE" });
       onSaved(field.key);
     } catch {
-      setError("Failed to remove. Please try again.");
+      setError("移除失败，请重试。");
     } finally {
       setRemoving(false);
     }
@@ -124,7 +124,7 @@ function CredentialRow({
             placeholder={
               isSet
                 ? "Enter new value to update"
-                : (field.placeholder ?? "Paste value here")
+                : (field.placeholder ?? "在这里粘贴值")
             }
             value={value}
             onChange={(e) => setValue(e.target.value)}
@@ -140,7 +140,7 @@ function CredentialRow({
             loading={saving}
             disabled={!value.trim()}
           >
-            {isSet ? "Update" : "Save"}
+            {isSet ? "更新" : "保存"}
           </Button>
           {isSet && (
             <Button
@@ -149,7 +149,7 @@ function CredentialRow({
               onClick={handleRemove}
               loading={removing}
             >
-              Remove
+              移除
             </Button>
           )}
         </div>
@@ -157,8 +157,7 @@ function CredentialRow({
 
       {isEnvSource && (
         <p className="pl-6 text-xs text-muted">
-          Set via environment variable. To override, remove the env var and set
-          here.
+          已通过环境变量设置。如需覆盖，请先移除环境变量后再在这里设置。
         </p>
       )}
 
@@ -223,7 +222,7 @@ export function AlibabaTokenPlan() {
           <ChevronRight className="w-4 h-4 text-muted shrink-0" />
         )}
         <span className="text-sm font-medium text-strong flex-1">
-          Alibaba Token Plan
+          阿里云 Token 配置
         </span>
         {!expanded && (
           <span
@@ -233,7 +232,7 @@ export function AlibabaTokenPlan() {
                 : "bg-danger-subtle text-danger"
             }`}
           >
-            {isConfigured ? "Configured" : "Not set"}
+            {isConfigured ? "已配置" : "未设置"}
           </span>
         )}
       </button>
@@ -241,23 +240,20 @@ export function AlibabaTokenPlan() {
       {expanded && (
         <div className="px-4 pb-3 border-t border-border-2">
           <p className="text-xs text-muted mt-3 mb-3">
-            Configures Alibaba ModelStudio token-plan access shared by all
-            Alibaba-provider agents. Get your credentials from the{" "}
+            配置所有阿里云服务商智能体共用的 ModelStudio token-plan 访问凭据。你可以从{" "}
             <a
               href="https://www.alibabacloud.com/help/en/model-studio/more-tools"
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent hover:underline"
             >
-              Alibaba ModelStudio docs
+              阿里云 ModelStudio 文档
             </a>
-            . The API key is required; the base URL defaults to the
-            international token-plan host and only needs changing for a
-            different region.
+            获取凭据。API 密钥为必填项；Base URL 默认使用国际版 token-plan 地址，仅在切换区域时需要修改。
           </p>
 
           {loading ? (
-            <p className="text-xs text-muted py-2">Loading...</p>
+            <p className="text-xs text-muted py-2">加载中...</p>
           ) : (
             <div>
               {CREDENTIAL_FIELDS.map((field) => (

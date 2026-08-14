@@ -47,7 +47,7 @@ export const agentConfigSchema = z.object({
   model: z.string().default("claude-sonnet-4-6"),
   systemPrompt: z
     .string()
-    .default("You are OpenCrow, a helpful personal AI assistant. Be concise and direct."),
+    .default("You are AgentHub, a helpful personal AI assistant. Be concise and direct."),
   retry: retryConfigSchema,
   compaction: compactionConfigSchema,
   failover: failoverConfigSchema,
@@ -81,7 +81,7 @@ export const agentDefinitionSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   default: z.boolean().optional(),
-  provider: z.enum(["openrouter", "agent-sdk", "alibaba", "anthropic", "opencode"]).optional(),
+  provider: z.enum(["openrouter", "agent-sdk", "alibaba", "anthropic", "minimax", "opencode"]).optional(),
   model: z.string().optional(),
   systemPrompt: z.string().optional(),
   maxIterations: z.number().int().min(1).optional(),
@@ -2657,7 +2657,7 @@ export const sigeConfigSchema = z.object({
       signalCredibilityWeight: 0.1,
     }),
   provider: z
-    .enum(["openrouter", "agent-sdk", "alibaba", "anthropic", "opencode"])
+    .enum(["openrouter", "agent-sdk", "alibaba", "anthropic", "minimax", "opencode"])
     .default("anthropic"),
   model: z.string().default("claude-sonnet-4-6"),
   agentModel: z.string().default("claude-sonnet-4-6"),
@@ -3854,7 +3854,7 @@ export const pipelinesConfigSchema = z
 export const opencrowConfigSchema = z.object({
   agent: agentConfigSchema.default({
     model: "claude-sonnet-4-6",
-    systemPrompt: "You are OpenCrow, a helpful personal AI assistant. Be concise and direct.",
+    systemPrompt: "You are AgentHub, a helpful personal AI assistant. Be concise and direct.",
     retry: { attempts: 3, minDelayMs: 500, maxDelayMs: 30000, jitter: 0.15 },
     compaction: {
       maxContextTokens: 180_000,

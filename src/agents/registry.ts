@@ -164,7 +164,7 @@ function resolveAgent(
 function synthesizeDefaultAgent(defaults: AgentConfig): ResolvedAgent {
   return {
     id: "default",
-    name: "OpenCrow",
+    name: "AgentHub",
     description: "",
     default: true,
     provider: "anthropic",

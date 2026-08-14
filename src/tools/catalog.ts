@@ -13,6 +13,7 @@ import { createHNTools } from "./hn";
 import { createRedditTools } from "./reddit";
 import { createGithubTools } from "./github";
 import { createXTimelineTools } from "./x-timeline";
+import { createCrawlerTools } from "./crawler-tools";
 import { createAppStoreTools } from "./appstore";
 import { createPlayStoreTools } from "./playstore";
 import { createGetScraperStatusTool } from "./scraper-status";
@@ -142,6 +143,20 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
   get_liked_tweets: "x_timeline",
   get_x_analytics: "x_timeline",
 
+  // AgentHub crawler wrappers
+  assess_china_relevance: "crawler",
+  crawl_x_social: "crawler",
+  crawl_telegram_social: "crawler",
+  crawl_lihkg_social: "crawler",
+  crawl_facebook_social: "crawler",
+  crawl_github_social: "crawler",
+  crawl_instagram_social: "crawler",
+  crawl_lien_social: "crawler",
+  crawl_netlight_social: "crawler",
+  crawl_ptt_social: "crawler",
+  crawl_youtube_social: "crawler",
+  fuse_social_reports: "crawler",
+
   // App Store
   get_appstore_rankings: "appstore",
   get_appstore_complaints: "appstore",
@@ -185,27 +200,28 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
 
 /** Human-readable category labels */
 export const CATEGORY_LABELS: Record<string, string> = {
-  core: "Core",
-  skills: "Skills",
-  agents: "Agents",
-  scheduling: "Scheduling",
-  memory: "Memory",
-  news: "News & Content",
-  product_hunt: "Product Hunt",
-  hacker_news: "Hacker News",
-  reddit: "Reddit",
-  github: "GitHub",
-  x_timeline: "X / Twitter",
-  appstore: "App Store",
-  playstore: "Play Store",
-  observability: "Observability",
-  database: "Database",
-  process: "Process Monitor",
-  mcp: "MCP Integrations",
-  development: "Development",
-  system: "System",
-  social: "Social",
-  research: "Research",
+  core: "核心工具",
+  skills: "技能工具",
+  agents: "智能体工具",
+  scheduling: "调度任务",
+  memory: "记忆工具",
+  news: "新闻与内容",
+  product_hunt: "Product Hunt 数据源",
+  hacker_news: "Hacker News 数据源",
+  reddit: "Reddit 数据源",
+  github: "GitHub 数据源",
+  x_timeline: "X 数据源",
+  crawler: "爬虫工具",
+  appstore: "App Store 数据源",
+  playstore: "Play Store 数据源",
+  observability: "运行观测",
+  database: "数据库",
+  process: "进程监控",
+  mcp: "MCP 集成",
+  development: "开发工具",
+  system: "系统工具",
+  social: "社交智能体",
+  research: "研究工具",
 };
 
 function resolveCategory(tool: ToolDefinition): string {
@@ -284,6 +300,7 @@ export function buildToolCatalog(): readonly ToolCatalogEntry[] {
   tools.push(...createRedditTools(mm));
   tools.push(...createGithubTools(mm));
   tools.push(...createXTimelineTools(mm));
+  tools.push(...createCrawlerTools());
   tools.push(...createAppStoreTools(mm));
   tools.push(...createPlayStoreTools(mm));
 
@@ -336,6 +353,7 @@ const CATEGORY_ORDER = [
   "reddit",
   "github",
   "x_timeline",
+  "crawler",
   "appstore",
   "playstore",
   "observability",

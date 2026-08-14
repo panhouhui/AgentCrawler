@@ -45,6 +45,7 @@ export type AiProvider =
   | "agent-sdk"
   | "alibaba"
   | "anthropic"
+  | "minimax"
   | "opencode";
 
 export type ProgressEvent =

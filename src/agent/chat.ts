@@ -13,6 +13,7 @@ import {
 } from "./agent-sdk";
 import { chat as chatAlibabaDirect } from "./alibaba-direct";
 import { chat as chatAnthropicDirect } from "./anthropic-direct";
+import { chat as chatMiniMaxDirect } from "./minimax-direct";
 import type { AgentOptions, AgentResponse, ConversationMessage } from "./types";
 import { recordTokenUsage } from "../store/token-usage";
 import { createLogger } from "../logger";
@@ -188,6 +189,18 @@ async function dispatchChat(
       model: options.model,
     });
     response = await chatAnthropicDirect(messages, options);
+  } else if (provider === "minimax") {
+    if (options.toolsEnabled && options.toolRegistry) {
+      log.warn("MiniMax direct does not support OpenCrow tool calls; running without tools", {
+        agentId: options.agentId,
+        model: options.model,
+      });
+    }
+    log.debug("Routing to MiniMax direct", {
+      agentId: options.agentId,
+      model: options.model,
+    });
+    response = await chatMiniMaxDirect(messages, { ...options, toolsEnabled: false, toolRegistry: undefined });
   } else {
     throw new Error(`Unknown AI provider: ${provider}`);
   }
