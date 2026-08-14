@@ -1,0 +1,77 @@
+from . import exceptions
+from . import i18n
+from . import log
+
+
+def check_type(value, value_type, name) -> None:
+    if not isinstance(value, value_type):
+        if value_type is str:
+            raise TypeError(f'[PyPtt] {name} {i18n.must_be_a_string}, but got {value}')
+        elif value_type is int:
+            raise TypeError(f'[PyPtt] {name} {i18n.must_be_a_integer}, but got {value}')
+        elif value_type is bool:
+            raise TypeError(f'[PyPtt] {name} {i18n.must_be_a_boolean}, but got {value}')
+        else:
+            raise TypeError(f'[PyPtt] {name} {i18n.must_be} {value_type}, but got {value}')
+
+
+def check_range(value, min_value: int = None, max_value: int = None, name: str = None) -> None:
+    check_type(value, int, name)
+
+    if min_value is not None:
+        check_type(min_value, int, 'min_value')
+
+        if value < min_value:
+            raise exceptions.ParameterError(f'{name} {value} {i18n.must_bigger_than} {min_value - 1}')
+
+    if max_value is not None:
+        check_type(max_value, int, 'max_value')
+
+        if value > max_value:
+            raise exceptions.ParameterError(f'{name} {value} {i18n.must_small_than} {max_value + 1}')
+
+
+def check_index(name, index, max_value=None) -> None:
+    check_type(index, int, name)
+    if index < 1:
+        raise exceptions.ParameterError(f'{name} {i18n.must_bigger_than} 0')
+
+    if max_value is not None:
+        if index > max_value:
+            log.logger.info('index', index)
+            log.logger.info('max_value', max_value)
+            raise exceptions.ParameterError(f'{name} {index} {i18n.must_between} 0 ~ {max_value}')
+
+
+def check_index_range(start_name, start_index, end_name, end_index, max_value=None) -> None:
+    check_type(start_index, int, start_name)
+    check_type(end_index, int, end_name)
+
+    if start_index < 1:
+        raise exceptions.ParameterError(f'{start_name} {start_index} {i18n.must_bigger_than} 0')
+
+    if end_index <= 1:
+        raise exceptions.ParameterError(f'{end_name} {end_index} {i18n.must_bigger_than} 1')
+
+    if start_index > end_index:
+        raise exceptions.ParameterError(f'{end_name} {end_index} {i18n.must_bigger_than} {start_name} {start_index}')
+
+    if max_value is not None:
+        if start_index > max_value:
+            raise exceptions.ParameterError(f'{start_name} {start_index} {i18n.must_small_than} {max_value}')
+
+        if end_index > max_value:
+            raise exceptions.ParameterError(f'{end_name} {end_index} {i18n.must_small_than} {max_value}')
+
+
+if __name__ == '__main__':
+    QQ = str
+
+    if QQ is str:
+        print('1')
+
+    if QQ == str:
+        print('2')
+
+    if isinstance('', QQ):
+        print('3')

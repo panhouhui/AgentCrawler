@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+.env
+output/
+data/processed/
+data/raw/*.html

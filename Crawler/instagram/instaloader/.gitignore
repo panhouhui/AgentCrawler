@@ -1,0 +1,6 @@
+__pycache__/
+.mypy_cache/
+.env
+instagram-env/
+hashtag_urls/
+yangpeng2026/

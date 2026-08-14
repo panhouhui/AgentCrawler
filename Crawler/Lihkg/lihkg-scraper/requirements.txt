@@ -1,0 +1,8 @@
+selenium
+pyvirtualdisplay
+pillow
+EasyProcess
+tqdm
+requests
+beautifulsoup4
+lxml

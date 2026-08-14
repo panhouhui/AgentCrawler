@@ -1,0 +1,8 @@
+lihkg*.csv
+proxy_auth_plugin_*.zip
+.env
+data/*.json
+data/*.jsonl
+logs/*.log
+logs/*.err
+proxy-test-results.jsonl

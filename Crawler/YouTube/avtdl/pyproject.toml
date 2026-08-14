@@ -1,0 +1,56 @@
+[project]
+name = "avtdl"
+description = "Monitoring and automation tool for Youtube and other streaming platforms"
+authors = [{name = "15532th"}]
+
+readme = "DESCRIPTION.md"
+
+classifiers = [
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License"
+]
+
+dynamic = ["version"]
+
+requires-python = ">= 3.9"
+dependencies = [
+    "pydantic>=2.7.0",
+    "aiohttp>=3.9,<3.10;sys_platform == 'win32'",
+    "aiohttp>=3.9;sys_platform != 'win32'",
+    "curl_cffi",
+    "python-dateutil",
+    "lxml",
+    "ruamel.yaml>=0.15",
+    "jsonpath-python==1.0.6"
+]
+
+
+[project.urls]
+Homepage = "https://github.com/15532th/avtdl"
+Documentation = "https://github.com/15532th/avtdl"
+Repository = "https://github.com/15532th/avtdl.git"
+Issues = "https://github.com/15532th/avtdl/issues"
+
+[build-system]
+requires = ["setuptools == 76.0.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+version_file = "avtdl/_version.py"
+
+[project.scripts]
+avtdl = "avtdl.avtdl:main"
+
+[tool.setuptools]
+py-modules = ["avtdl"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+include = ["avtdl*"]
+
+[tool.mypy]
+show_error_codes = true
+warn_unused_ignores = true
+allow_redefinition = true
+disable_error_code = ["override", "import"]

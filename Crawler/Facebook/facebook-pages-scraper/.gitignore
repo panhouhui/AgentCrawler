@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+
+.DS_Store
+.venv
+.env
+.ignore
+.backup_readme.md
+
+dist/
+build/
+
+*.egg-info/
+facebook_page_scraper.py
+test.py

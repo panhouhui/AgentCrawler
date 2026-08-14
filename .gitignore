@@ -1,86 +1,69 @@
-# dependencies (bun install)
-node_modules
+# local IDE and runtime state
+.idea/
+.vs/
+.opencrow/
+test/
+.upload-*/
 
-# output
-out
-dist
-*.tgz
-src/web/ui/tailwind-out.css
-.preview/
-
-# code coverage
-coverage
-*.lcov
-
-# logs
-logs
-_.log
-*.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# secrets and local environment
 .env
-.env.bak*
-.env.development.local
-.env.test.local
-.env.production.local
-.env.local
-
-# caches
-.eslintcache
-.cache
-.tmp/
-.runtime/
-tmp/
-*.tsbuildinfo
-
-# IDEs
-.idea
-.claude
-.serena
-CLAUDE.md
-
-# Finder (MacOS) folder config
-.DS_Store
-
-# scripts (track embedding server and deployment scripts)
-# scripts/
-
-# OpenCrow data
-opencrow.db
-opencrow.db-wal
-opencrow.db-shm
-data/
-# Exception: committed canonical-mapping data for the Neo4j graph maintenance
-# script (scripts/canonicalize-neo4j-graph.py needs these at --apply time).
-!scripts/data/
-!scripts/data/**
-src/news/scraper/.venv/
-
-# local secrets and external crawler/model environment files
+.env.*
+!AgentHub/.env.example
 env/
-Crawler/
-Crawler_env/
-model_env/
 *_env
 *.cookie
 *.cookies
 cookies.json
-secrets.json
 token.json
 tokens.json
 session.json
 sessions/
 
-# Playwright MCP
-.playwright-mcp/
-.mcp.json
+# AgentHub app local state
+AgentHub/node_modules/
+AgentHub/.runtime/
+AgentHub/.tmp/
+AgentHub/coverage/
+AgentHub/test-results/
+AgentHub/playwright-report/
+AgentHub/1
 
-# Playwright e2e artifacts
-playwright-report/
-test-results/
+# crawler local state and embedded repositories
+Crawler/**/.git/
+Crawler/**/.venv/
+Crawler/**/venv/
+Crawler/**/instagram-env/
+Crawler/**/YouTube_env/
+Crawler/**/__pycache__/
+Crawler/**/*.pyc
+Crawler/**/data/
+Crawler/**/matrix_messages/
+Crawler/**/output/
+Crawler/**/runtime/
+Crawler/**/db/
+Crawler/**/*.sqlite
+Crawler/**/*.sqlite3
+Crawler/**/*.log
+Crawler/**/*state*.json
+Crawler/**/telegram_push_state.json
+Crawler/**/config/threads_users.txt
+Crawler/**/*.session
+Crawler/**/*.session-journal
+Crawler/**/*.pkl
+Crawler/**/*.bak
+Crawler/**/*.enc
+Crawler/**/*.pem
+Crawler/**/*.key
+Crawler/**/id_rsa*
+Crawler/**/id_dsa*
+Crawler/**/id_ed25519*
 
-# Python (mem0 sidecar) build artifacts
+# generic dependency/build outputs
+node_modules/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+*.tgz
 __pycache__/
 *.pyc
-.venv/

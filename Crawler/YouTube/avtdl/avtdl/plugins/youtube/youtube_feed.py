@@ -1,0 +1,386 @@
+import datetime
+import logging
+import re
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
+from urllib.parse import quote_plus
+
+from pydantic import Field, PositiveFloat
+
+from avtdl.core.actors import Filter, FilterEntity
+from avtdl.core.interfaces import Record
+from avtdl.core.monitors import PagedFeedMonitor, PagedFeedMonitorConfig, PagedFeedMonitorEntity
+from avtdl.core.plugins import Plugins
+from avtdl.core.request import HttpClient, RetrySettings
+from avtdl.core.runtime import RuntimeContext
+from avtdl.plugins.filters.filters import EmptyFilterConfig
+from avtdl.plugins.filters.filters import load_patterns_file
+from avtdl.plugins.mattermost.mattermost import load_env_file
+from avtdl.plugins.youtube.common import NextPageContext, get_innertube_context, get_session_index, handle_consent, \
+    prepare_next_page_request
+from avtdl.plugins.youtube.feed_info import AuthorInfo, ContentTypeNotSupportedException, VideoRendererInfo, \
+    get_video_renderers, parse_lockup_view, \
+    parse_owner_info, \
+    parse_video_renderer
+
+
+@Plugins.register('channel', Plugins.kind.ASSOCIATED_RECORD)
+@Plugins.register('filter.channel', Plugins.kind.ASSOCIATED_RECORD)
+class YoutubeVideoRecord(VideoRendererInfo, Record):
+    """
+    Youtube video or livestream listed among others on Youtube page
+
+    Produced by parsing a channels main page, videos and streams tab,
+    as well as playlists, and, with login cookies, subscriptions feed.
+    """
+
+    video_id: str
+    """short string identifying video on Youtube. Part of video url"""
+    url: str
+    """link to the video, uses `https://www.youtube.com/watch?v=<video_id>` format"""
+    title: str
+    """title of the video at the time of parsing"""
+    summary: Optional[str] = Field(repr=False)
+    """snippet of the video description. Not always available"""
+    thumbnail_url: Optional[str] = None
+    """link to the video thumbnail"""
+    published_text: Optional[str]
+    """localized text saying how long ago the video was uploaded"""
+    scheduled: Optional[datetime.datetime] = None
+    """scheduled date for upcoming stream or premiere"""
+    author: Optional[str]
+    """channel name"""
+    avatar_url: Optional[str] = None
+    """link to the avatar of the channel. Not always available"""
+    channel_link: Optional[str] = None
+    """link to the channel uploading the video"""
+    channel_id: Optional[str] = None
+    """channel ID in old format (such as `UCK0V3b23uJyU4N8eR_BR0QA`)"""
+    length: Optional[str]
+    """text showing the video duration (hh:mm:ss)"""
+
+    is_upcoming: bool
+    """indicates that video is an upcoming livestream or premiere"""
+    is_live: bool
+    """indicates that the video is a livestream or premiere that is currently live"""
+    is_member_only: bool
+    """indicated that the video is limited to members of the channel. Note that the video status might be changed at any time"""
+
+    def __str__(self):
+        last_line = ''
+        scheduled = self.scheduled
+        if scheduled:
+            last_line = '\nscheduled to {}'.format(scheduled.strftime('%Y-%m-%d %H:%M'))
+        elif self.is_live:
+            last_line = '\n[Live]'
+        if self.is_member_only:
+            last_line += ' [Member only]'
+        template = '{}\n{}\npublished by {}'
+        return template.format(self.url, self.title, self.author) + last_line
+
+    def __repr__(self):
+        template = '{:<8} [{}] {}'
+        return template.format(self.author or 'Unknown author', self.video_id, self.title[:60])
+
+    def get_uid(self) -> str:
+        return self.video_id
+
+    def as_embed(self) -> dict:
+        embed: Dict[str, Any] = {
+            'title': self.title,
+            # 'description': ,
+            'url': self.url,
+            'color': None,
+            'author': {'name': self.author, 'url': self.channel_link, 'icon_url': self.avatar_url},
+            'image': {'url': self.thumbnail_url},
+            'fields': []
+        }
+        footer = ''
+        if self.published_text:
+            footer += self.published_text
+        if self.length:
+            embed['fields'].append({'name': f'[{self.length}]', 'value': '', 'inline': True})
+        if self.scheduled is not None:
+            scheduled = self.scheduled.strftime('%Y-%m-%d %H:%M')
+            embed['fields'].append({'name': 'Scheduled:', 'value': scheduled, 'inline': True})
+        if self.is_live:
+            embed['fields'].append({'name': '[Live]', 'value': '', 'inline': True})
+        if self.is_member_only:
+            embed['fields'].append({'name': '[Member only]', 'value': '', 'inline': True})
+        embed['footer'] = {'text': footer}
+        return embed
+
+
+@Plugins.register('channel', Plugins.kind.ACTOR_CONFIG)
+class VideosMonitorConfig(PagedFeedMonitorConfig):
+    pass
+
+
+@Plugins.register('channel', Plugins.kind.ACTOR_ENTITY)
+class VideosMonitorEntity(PagedFeedMonitorEntity):
+    update_interval: PositiveFloat = 1800
+    keywords_file: Optional[Path] = None
+    """optional text file with keywords to search on YouTube. Chinese terms and English aliases in parentheses separated by "/" are expanded into separate searches"""
+    keywords_per_update: int = Field(default=5, gt=0)
+    """how many keywords from keywords_file should be checked on each update"""
+    env_file: Path = Path(r'F:\AgentHub\env\Crawler_env\YouTube_env')
+    """path to .env containing YouTube_cookie"""
+    cookie_env: str = 'YouTube_cookie'
+    """env key containing a raw YouTube Cookie header value"""
+    max_age_hours: Optional[PositiveFloat] = 24
+    """drop videos older than this many hours based on published_text. Set to null to disable"""
+    keyword_offset: int = Field(default=0, exclude=True)
+    """internal offset used to rotate keyword checks across updates"""
+
+
+class FeedPageContext(NextPageContext):
+    owner_info: Optional[AuthorInfo]
+
+
+def published_text_age_hours(text: Optional[str]) -> Optional[float]:
+    if not text:
+        return None
+    value = text.strip().casefold()
+    if not value:
+        return None
+    if any(marker in value for marker in ['just now', 'now', '刚刚', '剛剛']):
+        return 0
+
+    match = re.search(r'(\d+(?:\.\d+)?)\s*([a-zA-Z]+|秒|分鐘|分钟|分|小時|小时|時|时|天|日|週|周|月|年)', value)
+    if match is None:
+        return None
+    number = float(match.group(1))
+    unit = match.group(2)
+
+    if unit.startswith(('second', 'sec')) or unit in {'秒'}:
+        return number / 3600
+    if unit.startswith(('minute', 'min')) or unit in {'分鐘', '分钟', '分'}:
+        return number / 60
+    if unit.startswith(('hour', 'hr')) or unit in {'小時', '小时', '時', '时'}:
+        return number
+    if unit.startswith('day') or unit in {'天', '日'}:
+        return number * 24
+    if unit.startswith('week') or unit in {'週', '周'}:
+        return number * 24 * 7
+    if unit.startswith('month') or unit in {'月'}:
+        return number * 24 * 30
+    if unit.startswith('year') or unit in {'年'}:
+        return number * 24 * 365
+    return None
+
+
+@Plugins.register('channel', Plugins.kind.ACTOR)
+class VideosMonitor(PagedFeedMonitor):
+    """
+    Youtube channel monitor
+
+    Monitors Youtube url listing videos, such as channels main page,
+    videos and streams tab of a channel, as well as playlists, and,
+    with login cookies, subscriptions feed or the main page.
+
+    Due to small differences in presentation in aforementioned
+    sources, same video might have slightly different appearance when
+    parsed from different urls. For example, video parsed from main
+    page or subscriptions feed will not have full description text.
+
+    Examples of supported url:
+
+    - `https://www.youtube.com/@ChannelName`
+    - `https://www.youtube.com/@ChannelName/videos`
+    - `https://www.youtube.com/@ChannelName/streams`
+    - `https://www.youtube.com/channel/UCK0V3b23uJyU4N8eR_BR0QA/`
+    - `https://www.youtube.com/playlist?list=PLWGY3fcU-ZeQmBfoJ6SmT8v2zV8NEhrB2`
+    - `https://www.youtube.com/feed/subscriptions` (providing cookies is necessarily)
+
+    Unlike `rss` monitor, with login cookies it can see videos and streams
+    with limited access (such as member-only).
+
+    While monitoring a single channel is less efficient, using this monitor with
+    subscriptions feed url on a dedicated account is a recommended way
+    to monitor a high amount (hundreds) of channels, as it only requires
+    loading a single page to check all of them for updates.
+
+    When main page of a channel (https://www.youtube.com/@ChannelName) is viewed
+    in logged in state, it might contain "For you" block, which content might
+    vary with subsequent updates. As a result, monitoring this url might occasionally
+    produce records with old videos that got showed in this block. If monitoring
+    without a cookies file is not an option, use a combination of "Videos" and "Streams"
+    tabs instead.
+    """
+
+    def __init__(self, conf: VideosMonitorConfig, entities: Sequence[VideosMonitorEntity], ctx: RuntimeContext):
+        super().__init__(conf, entities, ctx)
+        logger = logging.getLogger('actor').getChild(conf.name)
+        self.keywords_by_entity = {
+            entity.name: load_patterns_file(entity.keywords_file, logger) if entity.keywords_file else []
+            for entity in entities
+        }
+        for entity in entities:
+            env = load_env_file(entity.env_file, logger)
+            cookie = env.get(entity.cookie_env)
+            if not cookie:
+                logger.info(f'[{entity.name}] no YouTube cookie configured in "{entity.env_file}"')
+                continue
+            headers = dict(entity.headers or {})
+            headers['Cookie'] = cookie
+            entity.headers = headers
+            logger.info(f'[{entity.name}] loaded YouTube cookie from "{entity.env_file}"')
+
+    async def get_records(self, entity: VideosMonitorEntity, client: HttpClient) -> Sequence[Record]:
+        keywords = self.keywords_by_entity.get(entity.name) or []
+        if not keywords:
+            return await super().get_records(entity, client)
+
+        records: List[Record] = []
+        total = len(keywords)
+        start = entity.keyword_offset % total
+        selected = [keywords[(start + index) % total] for index in range(min(entity.keywords_per_update, total))]
+        entity.keyword_offset = (start + len(selected)) % total
+
+        original_url = entity.url
+        self.logger.info(f'[{entity.name}] checking {len(selected)} of {total} configured keywords')
+        for keyword in selected:
+            entity.url = f'https://www.youtube.com/results?search_query={quote_plus(keyword)}'
+            self.logger.debug(f'[{entity.name}] checking keyword "{keyword}" at {entity.url}')
+            records.extend(await super().get_records(entity, client))
+        entity.url = original_url
+        return records
+
+    def filter_recent_records(self, records: Sequence[YoutubeVideoRecord], entity: VideosMonitorEntity) -> List[YoutubeVideoRecord]:
+        if entity.max_age_hours is None:
+            return list(records)
+        recent: List[YoutubeVideoRecord] = []
+        for record in records:
+            if record.is_live or record.is_upcoming:
+                recent.append(record)
+                continue
+            age_hours = published_text_age_hours(record.published_text)
+            if age_hours is None:
+                self.logger.debug(
+                    f'[{entity.name}] dropping record "{record.get_uid()}" because published_text "{record.published_text}" could not be parsed'
+                )
+                continue
+            if age_hours <= entity.max_age_hours:
+                recent.append(record)
+            else:
+                self.logger.debug(
+                    f'[{entity.name}] dropping old record "{record.get_uid()}" published "{record.published_text}" ({age_hours:.1f} hours old)'
+                )
+        return recent
+
+    async def handle_first_page(self, entity: PagedFeedMonitorEntity, client: HttpClient) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
+        raw_page_text = await self.request(entity.url, entity, client)
+        if raw_page_text is None:
+            return None, None
+        raw_page_text = await handle_consent(raw_page_text, entity.url, client, self.logger)
+        video_renderers, lockup_views, continuation_token, page = get_video_renderers(raw_page_text)
+        if not video_renderers and not lockup_views:
+            self.logger.warning(f'[{entity.name}] found no videos on first page of {entity.url}')
+        owner_info = parse_owner_info(page)
+        current_page_records = self._parse_records(owner_info, video_renderers, lockup_views, entity)
+        current_page_records = self.filter_recent_records(current_page_records, entity)
+        innertube_context = get_innertube_context(raw_page_text)
+        session_index = get_session_index(page)
+        context = FeedPageContext(innertube_context=innertube_context, session_index=session_index, continuation_token=continuation_token, owner_info=owner_info)
+        return current_page_records, context
+
+    async def handle_next_page(self, entity: PagedFeedMonitorEntity, client: HttpClient,
+                               context: Optional[FeedPageContext]) -> Tuple[Optional[Sequence[Record]], Optional[FeedPageContext]]:
+        if context is None or context.continuation_token is None:
+            self.logger.debug(f'[{entity.name}] no continuation for next page, done loading')
+            return [], None
+
+        url, headers, post_body = prepare_next_page_request(context.innertube_context, context.continuation_token, cookies=client.cookie_jar)
+        raw_page = await client.request_text(url, method='POST', data_json=post_body, headers=headers,
+                                        settings=RetrySettings(retry_times=3, retry_delay=5, retry_multiplier=2))
+        if raw_page is None:
+            self.logger.debug(f'[{entity.name}] failed to load next page, aborting')
+            return None, None
+        video_renderers, lockup_views, continuation_token, page = get_video_renderers(raw_page, anchor='')
+
+        if not video_renderers and not lockup_views:
+            self.logger.debug(f'[{entity.name}] found no videos when parsing continuation of {entity.url}')
+        current_page_records = self._parse_records(context.owner_info, video_renderers, lockup_views, entity)
+        current_page_records = self.filter_recent_records(current_page_records, entity)
+
+        if continuation_token is not None:
+            context.continuation_token = continuation_token
+        else:
+            context = None
+        return current_page_records, context
+
+    def _parse_records(self,
+                       owner_info: Optional[AuthorInfo],
+                       video_renderers: List[dict],
+                       lockup_views: List[dict],
+                       entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+        records: List[YoutubeVideoRecord] = []
+        records.extend(self._parse_entries(video_renderers, parse_video_renderer, owner_info, entity))
+        records.extend(self._parse_entries(lockup_views, parse_lockup_view, owner_info, entity))
+        records = records[::-1] # records are ordered from old to new on page, reorder in chronological order
+        return records
+
+    def _parse_entries(self, items: List[dict],
+                       parser: Callable,
+                       owner_info: Optional[AuthorInfo],
+                       entity: PagedFeedMonitorEntity) -> List[YoutubeVideoRecord]:
+        records: List[YoutubeVideoRecord] = []
+        for item in items:
+            try:
+                info = parser(item, owner_info)
+                record = YoutubeVideoRecord.model_validate(info.model_dump())
+                records.append(record)
+            except ContentTypeNotSupportedException as e:
+                self.logger.debug(f'skipping unsupported content type: {e}')
+                continue
+            except Exception as e:
+                self.logger.warning(f'[{entity.name}] failed to parse video renderer on "{entity.url}": {type(e)}: {e}')
+                self.logger.debug(f'[{entity.name}] raw video renderer:\n{item}')
+                continue
+        return records
+
+    def record_got_updated(self, record: YoutubeVideoRecord, entity: VideosMonitorEntity) -> bool:
+        excluded_fields = {'published_text'}
+        return self.db.record_has_changed(record, entity.name, excluded_fields)
+
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR_CONFIG)
+class ChannelFilterConfig(EmptyFilterConfig):
+    pass
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR_ENTITY)
+class ChannelFilterEntity(FilterEntity):
+    upcoming: bool = False
+    """to pass the filter a record should be either upcoming livestream or scheduled premiere"""
+    live: bool = False
+    """to pass the filter a record should be an ongoing livestream"""
+    member_only: bool = False
+    """to pass the filter a record should be marked as member-only"""
+
+
+@Plugins.register('filter.channel', Plugins.kind.ACTOR)
+class ChannelFilter(Filter):
+    """
+    Pick `YoutubeVideoRecord` with specified properties
+
+    Filter that only lets `YoutubeVideoRecord` through if it has certain properties.
+    All records from other sources pass through without filtering.
+
+    If multiple settings are set to `true`, they all should match. Use multiple
+    entities if picking records with any of multiple properties is required.
+    """
+
+    def __init__(self, config: ChannelFilterConfig, entities: Sequence[ChannelFilterEntity], ctx: RuntimeContext):
+        super().__init__(config, entities, ctx)
+
+    def match(self, entity: ChannelFilterEntity, record: YoutubeVideoRecord) -> Optional[YoutubeVideoRecord]:
+        if not isinstance(record, YoutubeVideoRecord):
+            self.logger.debug(f'[{entity.name}] record is not a YoutubeVideoRecord, letting it through: {record!r}')
+            return record
+        if entity.upcoming and not record.is_upcoming:
+            return None
+        if entity.live and not record.is_live:
+            return None
+        if entity.member_only and not record.is_member_only:
+            return None
+        return record

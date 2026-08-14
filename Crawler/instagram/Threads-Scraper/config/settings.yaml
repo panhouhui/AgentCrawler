@@ -1,0 +1,14 @@
+# General scraper settings
+base_url: "https://www.threads.net"
+timeout: 15
+use_offline: true         # default to offline for guaranteed run
+use_proxies: false        # set true to use proxies from proxies.json
+use_browser: true         # render public pages with Playwright when static HTML has no posts
+browser_channel: "msedge" # uses installed Microsoft Edge; change to chrome/chromium if needed
+limit: 50
+# Default usernames used if none provided via CLI
+usernames:
+  - zuck
+  - mosseri
+# Optional cookie (can also be set via .env as THREADS_COOKIE)
+cookie: ""
