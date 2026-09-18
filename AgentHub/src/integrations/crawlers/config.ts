@@ -397,7 +397,8 @@ const PLATFORM_SPECS: readonly PlatformSpec[] = [
     label: "YouTube",
     crawlerPath: join(CRAWLER_ROOT, "YouTube"),
     envPath: join(CRAWLER_ENV_ROOT, "YouTube_env"),
-    notes: "抓取 YouTube 内容，Cookie 配置齐全后可运行。",
+    notes:
+      "可手动订阅频道 RSS，也可按人物、别名或机构关键词自动发现频道并持续监控其 RSS 更新。",
     groups: [
       {
         id: "account",
@@ -410,6 +411,28 @@ const PLATFORM_SPECS: readonly PlatformSpec[] = [
             key: "YouTube_cookie",
             label: "YouTube Cookie",
             sensitive: true,
+            multiline: true,
+          },
+        ],
+      },
+      {
+        id: "sources",
+        label: "监控来源（可选增强）",
+        description:
+          "可填写手动频道 RSS 或人物 / 事件关键词增强发现；为空时 YouTube 智能体会使用默认关键词自主发现频道并持续监控。",
+        required: false,
+        mode: "any",
+        fields: [
+          {
+            id: "sources",
+            key: "YouTube_sources",
+            label: "手动频道 RSS 源",
+            multiline: true,
+          },
+          {
+            id: "discoveryKeywords",
+            key: "YouTube_discovery_keywords",
+            label: "人物 / 事件自动发现关键词",
             multiline: true,
           },
         ],

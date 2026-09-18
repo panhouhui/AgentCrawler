@@ -126,7 +126,7 @@ export const TAB_TITLES: Record<Tab, string> = {
   pipelines: "管线",
   "pipeline-ideas": "管线创意",
   "keyword-research": "关键词研究",
-  "social-fusion": "社交融合",
+  "social-fusion": "全域雷达",
   "kan-push": "kan推送配置",
 };
 
@@ -140,7 +140,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
     title: "智能体",
     collapsible: false,
     items: [
-      { id: "social-fusion", label: "社交融合", Icon: Network },
+      { id: "social-fusion", label: "全域雷达", Icon: Network },
       { id: "agents", label: "智能体列表", Icon: Bot },
       { id: "chat", label: "对话", Icon: MessagesSquare },
       { id: "skills", label: "技能", Icon: GraduationCap },

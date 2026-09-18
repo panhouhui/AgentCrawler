@@ -1,5 +1,5 @@
 import { mkdir } from "node:fs/promises";
-import { extname, join, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { loadConfig } from "./config/loader";
 import { loadMiniMaxModelEnv } from "./config/model-env";
 import { bootstrap } from "./process/bootstrap";
@@ -70,8 +70,9 @@ function contentTypeFor(path: string): string {
 function safeAssetPath(pathname: string): string | null {
   const base = resolve(WEB_ASSETS_DIR);
   const resolved = resolve(base, pathname.replace(/^\/+/, ""));
-  if (resolved === base || resolved.startsWith(`${base}\\`)) return resolved;
-  return null;
+  const rel = relative(base, resolved);
+  if (rel && (rel.startsWith("..") || isAbsolute(rel))) return null;
+  return resolved;
 }
 
 function webIndexHtml(): Response {

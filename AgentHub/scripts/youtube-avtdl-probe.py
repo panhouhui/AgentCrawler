@@ -9,7 +9,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import ProxyHandler, Request, build_opener, urlopen
 from xml.etree import ElementTree as ET
 
@@ -42,16 +42,29 @@ MOJIBAKE_MARKERS = (
     "\u20ac",
 )
 
-DEFAULT_DISCOVER_SOURCES = [
-    ("subscriptions", "https://www.youtube.com/feed/subscriptions"),
-    ("trending", "https://www.youtube.com/feed/trending"),
-]
+DEFAULT_DISCOVER_SOURCES: list[tuple[str, str]] = []
+
+DEFAULT_DISCOVERY_KEYWORDS = (
+    "香港",
+    "香港新闻",
+    "香港时政",
+    "中国新闻",
+    "台湾新闻",
+    "国际新闻",
+    "地缘政治",
+    "政治安全",
+)
 
 SOURCE_ENV_KEYS = (
     "YOUTUBE_DISCOVER_SOURCES",
     "YOUTUBE_MONITOR_SOURCES",
     "YOUTUBE_SOURCE_URLS",
     "YouTube_sources",
+)
+
+AUTO_DISCOVERY_KEYWORD_ENV_KEYS = (
+    "YOUTUBE_DISCOVERY_KEYWORDS",
+    "YouTube_discovery_keywords",
 )
 
 YOUTUBE_FEED_NS = {
@@ -105,9 +118,22 @@ def youtube_headers() -> dict[str, str]:
     return headers
 
 
+def configured_proxy_url() -> str:
+    enabled = (os.environ.get("AGENTHUB_CRAWLER_USE_PROXY") or "").strip().lower()
+    if enabled in {"0", "false", "no", "off"}:
+        return ""
+    return (os.environ.get("AGENTHUB_CRAWLER_PROXY_URL") or "").strip()
+
+
 def fetch_url(url: str, *, use_env_proxy: bool = True, timeout: int = 25) -> str:
     req = Request(url, headers=youtube_headers())
-    opener = None if use_env_proxy else build_opener(ProxyHandler({}))
+    proxy_url = configured_proxy_url() if use_env_proxy else ""
+    if proxy_url:
+        opener = build_opener(ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    elif use_env_proxy:
+        opener = None
+    else:
+        opener = build_opener(ProxyHandler({}))
     open_url = urlopen if opener is None else opener.open
     with open_url(req, timeout=timeout) as response:
         raw = response.read()
@@ -229,6 +255,22 @@ def source_name_from_url(url: str) -> str:
     return path.split("/")[0] or parsed.netloc or "youtube"
 
 
+def is_channel_feed_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return (
+        parsed.netloc in {"www.youtube.com", "youtube.com"}
+        and parsed.path == "/feeds/videos.xml"
+        and bool(channel_id_from_feed_url(url))
+    )
+
+
+def channel_id_from_feed_url(url: str) -> str:
+    parsed = urlparse(url)
+    values = parse_qs(parsed.query).get("channel_id") or []
+    channel_id = values[0].strip() if values else ""
+    return channel_id if re.fullmatch(r"UC[A-Za-z0-9_-]{16,64}", channel_id) else ""
+
+
 def parse_source_value(value: str, index: int) -> tuple[str, str] | None:
     text = value.strip()
     if not text:
@@ -242,7 +284,7 @@ def parse_source_value(value: str, index: int) -> tuple[str, str] | None:
                 name = left.strip()
                 url = right.strip()
                 break
-    if not url.startswith("http"):
+    if not is_channel_feed_url(url):
         return None
     return (name or source_name_from_url(url) or f"source-{index + 1}", url)
 
@@ -261,6 +303,10 @@ def split_source_text(text: str) -> list[str]:
     return [item for item in re.split(r"[\n;,]+", stripped) if item.strip()]
 
 
+def split_keyword_text(text: str) -> list[str]:
+    return [item.strip() for item in re.split(r"[\n,;]+", text) if item.strip()]
+
+
 def sources_from_file(path: str) -> list[tuple[str, str]]:
     file_path = Path(path)
     if not file_path.exists():
@@ -276,7 +322,175 @@ def sources_from_file(path: str) -> list[tuple[str, str]]:
     return sources
 
 
+def bounded_int(value: object, default: int, minimum: int, maximum: int) -> int:
+    try:
+        number = int(str(value or "").strip())
+    except (TypeError, ValueError):
+        number = default
+    return max(minimum, min(number, maximum))
+
+
+def auto_discovery_keywords(
+    args: argparse.Namespace,
+    *,
+    use_default_keywords: bool = False,
+) -> list[str]:
+    raw_values: list[str] = []
+    for key in AUTO_DISCOVERY_KEYWORD_ENV_KEYS:
+        raw_values.extend(split_keyword_text(os.environ.get(key, "")))
+    raw_values.extend(args.discover_keyword or [])
+    if use_default_keywords and not raw_values:
+        raw_values.extend(DEFAULT_DISCOVERY_KEYWORDS)
+
+    seen: set[str] = set()
+    keywords: list[str] = []
+    for value in raw_values:
+        keyword = value.strip()
+        key = keyword.casefold()
+        if not keyword or key in seen:
+            continue
+        seen.add(key)
+        keywords.append(keyword)
+    return keywords[:8]
+
+
+def source_from_channel(channel_id: str, channel_name: str) -> tuple[str, str] | None:
+    clean_id = channel_id.strip()
+    if not re.fullmatch(r"UC[A-Za-z0-9_-]{16,64}", clean_id):
+        return None
+    name = re.sub(r"\s+", " ", channel_name).strip()
+    return (
+        f"auto:{name or clean_id}",
+        f"https://www.youtube.com/feeds/videos.xml?channel_id={clean_id}",
+    )
+
+
+def auto_discovery_state_sources(path: str) -> list[tuple[str, str]]:
+    if not path:
+        return []
+    state_path = Path(path)
+    if not state_path.exists():
+        return []
+    try:
+        parsed = json.loads(state_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return []
+    values = parsed.get("sources") if isinstance(parsed, dict) else None
+    if not isinstance(values, list):
+        return []
+
+    sources: list[tuple[str, str]] = []
+    for index, value in enumerate(values):
+        if not isinstance(value, dict):
+            continue
+        url = str(value.get("url") or "").strip()
+        name = str(value.get("name") or "").strip()
+        if is_channel_feed_url(url):
+            sources.append((name or source_name_from_url(url) or f"auto-{index + 1}", url))
+    return sources
+
+
+def write_auto_discovery_state(path: str, sources: list[tuple[str, str]]) -> None:
+    if not path:
+        return
+    state_path = Path(path)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "version": 1,
+        "updated_at": int(time.time()),
+        "sources": [{"name": name, "url": url} for name, url in sources],
+    }
+    temporary = state_path.with_suffix(f"{state_path.suffix}.tmp")
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    os.replace(temporary, state_path)
+
+
+def auto_discovered_sources(
+    args: argparse.Namespace,
+    *,
+    use_default_keywords: bool = False,
+) -> tuple[list[tuple[str, str]], list[dict[str, str]]]:
+    state_path = args.auto_discovery_state_file.strip()
+    keywords = auto_discovery_keywords(args, use_default_keywords=use_default_keywords)
+    if not keywords:
+        return [], []
+
+    known_sources = auto_discovery_state_sources(state_path)
+    per_keyword_limit = bounded_int(
+        args.auto_discovery_per_keyword,
+        default=3,
+        minimum=1,
+        maximum=8,
+    )
+    max_channels = bounded_int(
+        args.auto_discovery_max_channels
+        or os.environ.get("YOUTUBE_AUTO_DISCOVERY_MAX_CHANNELS"),
+        default=8,
+        minimum=1,
+        maximum=20,
+    )
+    discovered: list[tuple[str, str]] = []
+    errors: list[dict[str, str]] = []
+
+    for keyword in keywords:
+        try:
+            page_text = fetch_url_with_fallback(query_url(keyword), timeout=args.request_timeout)
+            records = parse_records(
+                page_text,
+                per_keyword_limit,
+                source_name=f"search:{keyword}",
+                source_url=query_url(keyword),
+                max_age_hours=24 * 365 * 10,
+            )
+        except Exception as exc:
+            errors.append(
+                {
+                    "source_name": f"auto-discovery:{keyword}",
+                    "source_url": query_url(keyword),
+                    "error": str(exc),
+                }
+            )
+            continue
+
+        for record in records:
+            source = source_from_channel(
+                str(record.get("channel_id") or ""),
+                str(record.get("channel_name") or record.get("author") or ""),
+            )
+            if source:
+                discovered.append(source)
+
+    merged: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for name, url in [*discovered, *known_sources]:
+        key = url.rstrip("/")
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append((name, url))
+        if len(merged) >= max_channels:
+            break
+
+    if discovered and state_path:
+        try:
+            write_auto_discovery_state(state_path, merged)
+        except OSError as exc:
+            errors.append(
+                {
+                    "source_name": "auto-discovery-state",
+                    "source_url": state_path,
+                    "error": str(exc),
+                }
+            )
+
+    return merged, errors
+
+
 def discover_sources(args: argparse.Namespace) -> list[tuple[str, str]]:
+    cached = getattr(args, "_resolved_sources", None)
+    if isinstance(cached, list):
+        return cached
+
     sources: list[tuple[str, str]] = []
     source_files = [
         args.sources_file,
@@ -300,6 +514,9 @@ def discover_sources(args: argparse.Namespace) -> list[tuple[str, str]]:
         if source:
             sources.append(source)
 
+    auto_sources, auto_errors = auto_discovered_sources(args, use_default_keywords=not sources)
+    sources.extend(auto_sources)
+
     if not sources:
         sources = list(DEFAULT_DISCOVER_SOURCES)
 
@@ -311,8 +528,15 @@ def discover_sources(args: argparse.Namespace) -> list[tuple[str, str]]:
             continue
         seen.add(key)
         deduped.append((name, url))
-    max_sources = max(1, min(int(os.environ.get("YOUTUBE_DISCOVER_MAX_SOURCES", "2") or 2), 8))
-    return deduped[:max_sources]
+    max_sources = bounded_int(
+        os.environ.get("YOUTUBE_DISCOVER_MAX_SOURCES"),
+        default=12,
+        minimum=1,
+        maximum=24,
+    )
+    args._source_discovery_errors = auto_errors
+    args._resolved_sources = deduped[:max_sources]
+    return args._resolved_sources
 
 
 def record_to_dict(record: Any, *, source_name: str, source_url: str) -> dict[str, Any]:
@@ -513,9 +737,14 @@ def parse_discover_page(
 
 def discover_records(args: argparse.Namespace, limit: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
-    errors: list[dict[str, Any]] = []
     seen: set[str] = set()
     sources = discover_sources(args)
+    errors: list[dict[str, Any]] = list(getattr(args, "_source_discovery_errors", []))
+    if not sources:
+        raise RuntimeError(
+            "YouTube 未发现可监控频道。请检查 YouTube 网络访问，或设置 YouTube_sources / "
+            "YouTube_discovery_keywords 增强发现入口。"
+        )
     per_source_limit = max(limit, min(limit * 2, 12))
 
     for source_name, source_url in sources:
@@ -538,9 +767,8 @@ def discover_records(args: argparse.Namespace, limit: int) -> tuple[list[dict[st
                 continue
             seen.add(key)
             records.append(record)
-            if len(records) >= limit:
-                return records, errors
 
+    records.sort(key=lambda item: int(item.get("published_at") or 0), reverse=True)
     return records[:limit], errors
 
 
@@ -561,6 +789,10 @@ def main() -> int:
     parser.add_argument("--discover", action="store_true")
     parser.add_argument("--source-url", action="append", default=[])
     parser.add_argument("--sources-file", default="")
+    parser.add_argument("--discover-keyword", action="append", default=[])
+    parser.add_argument("--auto-discovery-state-file", default="")
+    parser.add_argument("--auto-discovery-max-channels", type=int, default=0)
+    parser.add_argument("--auto-discovery-per-keyword", type=int, default=0)
     parser.add_argument("--limit", type=int, default=3)
     parser.add_argument("--max-age-hours", type=float, default=24 * 30)
     parser.add_argument("--request-timeout", type=int, default=20)

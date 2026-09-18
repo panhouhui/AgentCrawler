@@ -10,7 +10,7 @@ import warnings
 from html import unescape
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import quote, urlsplit, urlunsplit
 
 import requests
 from bs4 import BeautifulSoup, MarkupResemblesLocatorWarning
@@ -64,12 +64,79 @@ def rotate_brightdata_proxy_url(proxy_url: str) -> Optional[str]:
     return urlunsplit((parts.scheme, f"{username_new}:{password}@{host}", "", "", ""))
 
 
-def rotate_session_proxy(session: requests.Session) -> bool:
+def proxy_url_from_pool_entry(value: str) -> Optional[str]:
+    entry = value.strip()
+    if not entry or entry.startswith("#"):
+        return None
+    if "://" in entry:
+        return entry
+
+    parts = entry.split(":", 3)
+    if len(parts) != 4:
+        return None
+    host, port, username, password = parts
+    if not all((host, port, username, password)):
+        return None
+    return f"http://{quote(username, safe='')}:{quote(password, safe='')}@{host}:{port}"
+
+
+def load_proxy_pool(path: str) -> List[str]:
+    if not path:
+        return []
+    try:
+        lines = Path(path).read_text(encoding="utf-8-sig").splitlines()
+    except OSError:
+        return []
+    return [proxy for line in lines if (proxy := proxy_url_from_pool_entry(line))]
+
+
+def set_session_proxy(session: requests.Session, proxy_url: str) -> None:
+    session.proxies.update({"http": proxy_url, "https": proxy_url})
+
+
+def configure_proxy_pool(
+    session: requests.Session,
+    proxies: List[str],
+    fallback_proxy: str,
+) -> None:
+    session.proxy_pool = proxies
+    session.proxy_pool_index = 0
+    session.proxy_pool_fallback = fallback_proxy
+    if proxies:
+        set_session_proxy(session, proxies[0])
+    elif fallback_proxy:
+        set_session_proxy(session, fallback_proxy)
+
+
+def fall_back_from_proxy_pool(session: requests.Session) -> bool:
+    fallback_proxy = getattr(session, "proxy_pool_fallback", "")
     current = session.proxies.get("https") or session.proxies.get("http")
+    if not fallback_proxy or current == fallback_proxy:
+        return False
+    session.proxy_pool = []
+    set_session_proxy(session, fallback_proxy)
+    session.proxy_rotations = getattr(session, "proxy_rotations", 0) + 1
+    return True
+
+
+def rotate_session_proxy(session: requests.Session) -> bool:
+    proxy_pool = getattr(session, "proxy_pool", [])
+    pool_index = int(getattr(session, "proxy_pool_index", 0) or 0)
+    if proxy_pool and pool_index < len(proxy_pool) - 1:
+        pool_index += 1
+        session.proxy_pool_index = pool_index
+        set_session_proxy(session, proxy_pool[pool_index])
+        session.proxy_rotations = getattr(session, "proxy_rotations", 0) + 1
+        return True
+
+    current = session.proxies.get("https") or session.proxies.get("http")
+    if proxy_pool and fall_back_from_proxy_pool(session):
+        return True
+
     rotated = rotate_brightdata_proxy_url(current or "")
     if not rotated:
         return False
-    session.proxies.update({"http": rotated, "https": rotated})
+    set_session_proxy(session, rotated)
     session.proxy_rotations = getattr(session, "proxy_rotations", 0) + 1
     return True
 
@@ -205,7 +272,9 @@ def request_json(
 
             response.raise_for_status()
             return response.json()
-        except ProxyError:
+        except ProxyError as exc:
+            if "407" in str(exc) and fall_back_from_proxy_pool(session):
+                continue
             if attempt == attempts_total or not rotate_session_proxy(session):
                 raise
             time.sleep(min(backoff_base, 2) + random.uniform(0, 1))
@@ -531,9 +600,9 @@ def run_once(args: argparse.Namespace, show_progress: bool = True) -> Dict[str, 
     }
 
     with requests.Session() as session:
-        if args.proxy:
-            session.proxies.update({"http": args.proxy, "https": args.proxy})
-            session.proxy_rotate_retries = args.proxy_rotate_retries
+        proxy_pool = load_proxy_pool(args.proxy_pool_file)
+        configure_proxy_pool(session, proxy_pool, args.proxy)
+        session.proxy_rotate_retries = args.proxy_rotate_retries
         if args.cookie:
             session.lihkg_cookie = args.cookie
 
@@ -643,6 +712,7 @@ def add_common_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--backoff-base", type=float, default=None, help="Base seconds for retry backoff.")
     parser.add_argument("--max-rate-limit-wait", type=float, default=None, help="Skip a request if 429 backoff exceeds this many seconds.")
     parser.add_argument("--proxy", default=None, help="Optional HTTP/SOCKS proxy URL, e.g. http://user:pass@host:port.")
+    parser.add_argument("--proxy-pool-file", default=None, help="Optional proxy pool file. Supports proxy URLs or host:port:user:password lines.")
     parser.add_argument("--proxy-rotate-retries", type=int, default=None, help="Retry count using new Bright Data sessions when proxy errors or 429 happen.")
     parser.add_argument("--cookie", default=None, help="Optional raw Cookie header copied from a browser session.")
     parser.add_argument("--tail-existing", action="store_true", default=None, help="For known threads, fetch from the previous last page instead of page 1.")
@@ -681,6 +751,11 @@ def apply_env_defaults(args: argparse.Namespace) -> argparse.Namespace:
         else env_value(env, "LIHKG_MAX_RATE_LIMIT_WAIT", 60.0, float)
     )
     args.proxy = args.proxy if args.proxy is not None else env_value(env, "LIHKG_PROXY", "")
+    args.proxy_pool_file = (
+        args.proxy_pool_file
+        if args.proxy_pool_file is not None
+        else env_value(env, "LIHKG_PROXY_POOL_FILE", "")
+    )
     args.proxy_rotate_retries = (
         args.proxy_rotate_retries
         if args.proxy_rotate_retries is not None

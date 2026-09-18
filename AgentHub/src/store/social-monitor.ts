@@ -6,6 +6,7 @@ import {
   type SocialFusionDedupeFingerprint,
 } from "../pipelines/social/dedupe";
 import type { FusedSocialEvent, PlatformReport } from "../pipelines/social/schemas";
+import { successfulKanChannelIdsFromPayload } from "../pipelines/social/kan-delivery";
 import type { ChinaRelevanceResult, SocialPlatform } from "../pipelines/social/types";
 
 export type SocialMonitorStatus =
@@ -144,6 +145,7 @@ export interface SocialKanDuplicateMatch {
   readonly queue: SocialKanQueueRecord;
   readonly matchedBy: "fused_event_key" | "dedupe_key" | "fingerprint";
   readonly comparison: SocialFusionDedupeComparison;
+  readonly deliveredChannelIds: readonly string[];
 }
 
 export interface SocialAgentStepLogRecord {
@@ -354,6 +356,7 @@ function parseDedupeFingerprint(
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
   const record = parsed as Record<string, unknown>;
   if (
+    record.fingerprintVersion !== 2 ||
     typeof record.eventKey !== "string" ||
     typeof record.eventTitle !== "string" ||
     !Array.isArray(record.urls) ||
@@ -364,6 +367,7 @@ function parseDedupeFingerprint(
     return null;
   }
   return {
+    fingerprintVersion: 2,
     eventKey: record.eventKey,
     eventTitle: record.eventTitle,
     urls: record.urls.filter((item): item is string => typeof item === "string"),
@@ -748,46 +752,16 @@ export async function findRecentSocialKanDuplicate(input: {
   const db = getDb();
   const rows = (await db`
     SELECT * FROM social_kan_queue
-    WHERE (
-      status IN ('sent', 'pending')
-      OR (status = 'skipped' AND duplicate_of_queue_id IS NOT NULL)
-    )
+    WHERE status IN ('sent', 'pending')
       AND created_at >= ${since}
     ORDER BY created_at DESC
     LIMIT 200
   `) as KanQueueRow[];
 
+  let firstMatch: SocialKanDuplicateMatch | null = null;
+  const deliveredChannelIds = new Set<string>();
   for (const row of rows) {
     const queue = rowToKanQueue(row);
-    if (input.fusedEventKey && queue.fusedEventKey === input.fusedEventKey) {
-      return {
-        queue,
-        matchedBy: "fused_event_key",
-        comparison: {
-          isDuplicate: true,
-          score: 1,
-          reasons: ["事件 key 完全相同"],
-          commonUrls: [],
-          commonNodes: [],
-          commonTitleTokens: [],
-        },
-      };
-    }
-    if (input.dedupeKey && queue.dedupeKey === input.dedupeKey) {
-      return {
-        queue,
-        matchedBy: "dedupe_key",
-        comparison: {
-          isDuplicate: true,
-          score: 0.96,
-          reasons: ["事件去重键完全相同"],
-          commonUrls: [],
-          commonNodes: [],
-          commonTitleTokens: [],
-        },
-      };
-    }
-
     const previousFingerprint =
       queue.dedupeFingerprint ??
       deriveSocialFusionDedupeFingerprintFromPayload(queue.payload);
@@ -796,13 +770,37 @@ export async function findRecentSocialKanDuplicate(input: {
       previousFingerprint,
     );
     if (comparison.isDuplicate) {
-      return {
+      for (const channelId of successfulKanChannelIdsFromPayload(queue.payload)) {
+        deliveredChannelIds.add(channelId);
+      }
+      firstMatch ??= {
         queue,
-        matchedBy: "fingerprint",
+        matchedBy:
+          input.fusedEventKey && queue.fusedEventKey === input.fusedEventKey
+            ? "fused_event_key"
+            : input.dedupeKey && queue.dedupeKey === input.dedupeKey
+              ? "dedupe_key"
+              : "fingerprint",
         comparison,
+        deliveredChannelIds: [],
       };
     }
   }
 
-  return null;
+  return firstMatch
+    ? { ...firstMatch, deliveredChannelIds: [...deliveredChannelIds] }
+    : null;
+}
+
+export async function listPendingSocialKanQueue(
+  limit = 20,
+): Promise<readonly SocialKanQueueRecord[]> {
+  const db = getDb();
+  const rows = (await db`
+    SELECT * FROM social_kan_queue
+    WHERE status = 'pending'
+    ORDER BY created_at ASC
+    LIMIT ${Math.max(1, Math.min(limit, 100))}
+  `) as KanQueueRow[];
+  return rows.map(rowToKanQueue);
 }

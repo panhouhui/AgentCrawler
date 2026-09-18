@@ -141,6 +141,8 @@ function buildChildEnv(spec: CrawlerSpec, plan?: CommandPlan): Record<string, st
     OPENCROW_KAN_PUSH_DISABLED: "1",
   };
 
+  env.PYTHONPATH = [spec.cwd, env.PYTHONPATH].filter(Boolean).join(":");
+
   if (process.env.AGENTHUB_CRAWLER_USE_PROXY !== "0") {
     env.HTTP_PROXY ||= CRAWLER_PROXY_URL;
     env.HTTPS_PROXY ||= CRAWLER_PROXY_URL;
@@ -800,11 +802,13 @@ function buildLihkgProbe(input: CrawlerToolInput): CommandPlan {
   const errors = outputJsonlPath("lihkg", "errors");
   const state = outputPath("lihkg", "state");
   const probeEnv = outputTextPath("lihkg", "env", "MATTERMOST_ENABLED=false\n");
-  const lihkgCookie = readEnvFile(join(CRAWLER_ENV_ROOT, "Lihkg_env")).LIHKG_COOKIE ?? "";
+  const lihkgEnv = readEnvFile(join(CRAWLER_ENV_ROOT, "Lihkg_env"));
+  const lihkgCookie = lihkgEnv.LIHKG_COOKIE ?? "";
+  const lihkgProxyPoolFile = lihkgEnv.LIHKG_PROXY_POOL_FILE ?? "";
   return {
     argv: [
       PYTHON,
-      "src\\scrape_category.py",
+      "src/scrape_category.py",
       "--env-file",
       probeEnv,
       "once",
@@ -828,8 +832,9 @@ function buildLihkgProbe(input: CrawlerToolInput): CommandPlan {
       "1",
       "--proxy",
       CRAWLER_PROXY_URL,
+      ...(lihkgProxyPoolFile ? ["--proxy-pool-file", lihkgProxyPoolFile] : []),
       "--proxy-rotate-retries",
-      "0",
+      lihkgProxyPoolFile ? "6" : "0",
       "--cookie",
       lihkgCookie,
       "--state",
@@ -963,7 +968,7 @@ function buildPttProbe(input: CrawlerToolInput): CommandPlan {
   return {
     argv: [
       PYTHON,
-      "scripts\\crawl_ptt_http.py",
+      "scripts/crawl_ptt_http.py",
       ...(eventTitle ? ["--event-filter", eventTitle] : []),
       "--limit",
       String(input.limit),
@@ -990,6 +995,8 @@ function buildYoutubeProbe(input: CrawlerToolInput): CommandPlan {
         String(input.limit),
         "--env-file",
         join(CRAWLER_ENV_ROOT, "YouTube_env"),
+        "--auto-discovery-state-file",
+        join(RUNTIME_TMP_ROOT, "youtube-auto-discovered-sources.json"),
         "--output",
         output,
       ],
@@ -1087,7 +1094,7 @@ const SPECS: readonly CrawlerSpec[] = [
       "调用 LIHKG 爬虫做热门/最新帖子小范围探测，默认不推送 Kan。",
     cwd: join(CRAWLER_ROOT, "Lihkg", "lihkg-scraper"),
     envFile: join(CRAWLER_ENV_ROOT, "Lihkg_env"),
-    smoke: { argv: [PYTHON, "src\\scrape_category.py", "--help"] },
+    smoke: { argv: [PYTHON, "src/scrape_category.py", "--help"] },
     buildProbe(input) {
       return buildLihkgProbe(input);
     },
@@ -1103,14 +1110,14 @@ const SPECS: readonly CrawlerSpec[] = [
       "调用 Facebook 搜索脚本按候选事件做小范围复核，默认 dry-run 且不推送 Kan。",
     cwd: join(CRAWLER_ROOT, "Facebook", "facebook-pages-scraper"),
     envFile: join(CRAWLER_ENV_ROOT, "Facebook_env"),
-    smoke: { argv: [PYTHON, "scripts\\facebook_search.py", "--help"] },
+    smoke: { argv: [PYTHON, "scripts/facebook_search.py", "--help"] },
     buildProbe(input) {
       if (input.phase === "discover") {
         const output = outputCsvPath("facebook", "discover");
         return {
           argv: [
             PYTHON,
-            "scripts\\facebook_search.py",
+            "scripts/facebook_search.py",
             "--discover",
             "--type",
             "posts",
@@ -1131,7 +1138,7 @@ const SPECS: readonly CrawlerSpec[] = [
       return {
         argv: [
           PYTHON,
-          "scripts\\facebook_search.py",
+          "scripts/facebook_search.py",
           eventTitle,
           "--type",
           "posts",
@@ -1150,7 +1157,7 @@ const SPECS: readonly CrawlerSpec[] = [
         return {
           argv: [
             PYTHON,
-            "scripts\\facebook_search.py",
+            "scripts/facebook_search.py",
             "--discover",
             "--type",
             "posts",
@@ -1170,7 +1177,7 @@ const SPECS: readonly CrawlerSpec[] = [
       return {
         argv: [
           PYTHON,
-          "scripts\\facebook_search.py",
+          "scripts/facebook_search.py",
           eventTitle,
           "--type",
           "posts",
@@ -1255,7 +1262,7 @@ const SPECS: readonly CrawlerSpec[] = [
       "调用 PTT HTTPS 爬虫做最新文章发现或候选事件复核。",
     cwd: join(CRAWLER_ROOT, "PTT", "PyPtt"),
     envFile: join(CRAWLER_ENV_ROOT, "PTT_env"),
-    smoke: { argv: [PYTHON, "scripts\\crawl_ptt_http.py", "--help"] },
+    smoke: { argv: [PYTHON, "scripts/crawl_ptt_http.py", "--help"] },
     buildProbe(input) {
       return buildPttProbe(input);
     },

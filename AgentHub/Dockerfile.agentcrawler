@@ -1,0 +1,81 @@
+FROM oven/bun:1.3.14
+
+ENV HOME=/home/bun \
+    NODE_ENV=production \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    OPENCROW_IN_CONTAINER=1 \
+    OPENCROW_TOOLS_SANDBOX=required \
+    AGENTHUB_PYTHON=/opt/agenthub-py/bin/python \
+    PATH="/opt/agenthub-py/bin:${PATH}"
+
+USER root
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bubblewrap \
+      ca-certificates \
+      git \
+      python3 \
+      python3-venv \
+      python3-pip \
+      python-is-python3 \
+      build-essential \
+      libpq-dev \
+      libasound2t64 \
+      libatk-bridge2.0-0t64 \
+      libatk1.0-0t64 \
+      libatspi2.0-0t64 \
+      libcairo2 \
+      libcups2t64 \
+      libdbus-1-3 \
+      libdrm2 \
+      libgbm1 \
+      libglib2.0-0t64 \
+      libnspr4 \
+      libnss3 \
+      libpango-1.0-0 \
+      libx11-6 \
+      libxcb1 \
+      libxcomposite1 \
+      libxdamage1 \
+      libxext6 \
+      libxfixes3 \
+      libxkbcommon0 \
+      libxrandr2 \
+      fonts-liberation \
+      fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+RUN chown bun:bun /app
+
+COPY AgentHub/package.json AgentHub/bun.lock ./
+RUN chown bun:bun package.json bun.lock
+USER bun
+RUN bun install --frozen-lockfile || bun install
+RUN bunx playwright install chromium
+
+USER root
+COPY Crawler /tmp/agenthub-crawler
+RUN python3 -m venv /opt/agenthub-py \
+    && /opt/agenthub-py/bin/python -m pip install --upgrade pip setuptools wheel \
+    && /opt/agenthub-py/bin/python -m pip install \
+      -r /tmp/agenthub-crawler/Telegram/requirements.txt \
+      -r /tmp/agenthub-crawler/Facebook/facebook-pages-scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/Lihkg/lihkg-scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/Lien/linkedin_scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/X/X网站评论爬取/requirements.txt \
+      -r /tmp/agenthub-crawler/instagram/Threads-Scraper/requirements.txt \
+      /tmp/agenthub-crawler/YouTube/avtdl \
+      requests beautifulsoup4 lxml curl_cffi python-dotenv PyYAML pandas \
+    && rm -rf /root/.cache/pip /tmp/agenthub-crawler
+
+COPY --chown=bun:bun AgentHub .
+USER bun
+RUN bun run tw:build
+
+EXPOSE 48080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD bun -e "fetch('http://127.0.0.1:48081/internal/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["bun", "run", "start"]

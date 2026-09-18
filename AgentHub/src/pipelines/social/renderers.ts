@@ -1,4 +1,10 @@
 import type { FusedSocialEvent, PlatformReport } from "./schemas";
+import {
+  globalRadarPlatformLabel,
+  globalRadarStatusLabel,
+  globalRadarTierLabel,
+  type GlobalRadarEvent,
+} from "./radar";
 
 function pct(value: number): string {
   const sign = value > 0 ? "+" : "";
@@ -282,6 +288,104 @@ export function renderSocialFusionKanMessage(input: {
     actions.length > 0 ? actions.map((item) => `- ${item}`).join("\n") : "- 持续监控，等待更多平台证据。",
     "",
     "说明：以上内容只使用已入库的公开证据；未发现平台不会计入传播路径或平台数量。",
+  ]
+    .filter((line) => line !== "")
+    .join("\n");
+}
+
+function radarList(items: readonly string[]): string {
+  return items.length > 0 ? items.join("、") : "暂无";
+}
+
+function radarTime(value: number): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value * 1000));
+}
+
+export function renderGlobalRadarKanMessage(input: {
+  readonly radar: GlobalRadarEvent;
+  readonly decisionReason?: string;
+}): string {
+  const { radar } = input;
+  const path =
+    radar.propagation.path.length > 0
+      ? radar.propagation.path.map(globalRadarPlatformLabel).join(" -> ")
+      : "暂未形成明确传播路径";
+  const platformLines = radar.platformStats.map((item) => {
+    const delta =
+      item.deltaSincePrevious === null
+        ? "暂无连续样本"
+        : `${item.deltaSincePrevious >= 0 ? "+" : ""}${item.deltaSincePrevious}`;
+    return `${globalRadarPlatformLabel(item.platform)}：${item.verifiedCount} 条可核验命中，变化 ${delta}`;
+  });
+  const sourceLinkLines = (radar.sourceLinks ?? []).map(
+    (item) => `${globalRadarPlatformLabel(item.platform)}：${item.url}`,
+  );
+  const decisionReason = input.decisionReason
+    ? sanitizePublicLine(input.decisionReason).replace(/^推送判断[：:]\s*/, "")
+    : "";
+
+  return [
+    `【全域雷达｜${globalRadarTierLabel(radar.tier)}事件】`,
+    `事件 ID：${radar.eventId}`,
+    `事件标题：${sanitizePublicLine(radar.title)}`,
+    `核心摘要：${sanitizePublicLine(radar.shortSummary)}`,
+    `事件等级：${globalRadarTierLabel(radar.tier)}`,
+    `事件状态：${globalRadarStatusLabel(radar.status)}`,
+    `首次发现：${radarTime(radar.firstSeenAt)}`,
+    `最近更新：${radarTime(radar.updatedAt)}`,
+    "",
+    "跨平台态势：",
+    `涉及平台：${radar.foundPlatforms.map(globalRadarPlatformLabel).join("、") || "暂无"}`,
+    `首发平台：${globalRadarPlatformLabel(radar.firstPlatform)}`,
+    `主导平台：${globalRadarPlatformLabel(radar.dominantPlatform)}`,
+    `覆盖：${radar.foundPlatforms.length} / ${radar.monitoredPlatformCount}`,
+    platformLines.length > 0 ? platformLines.join("\n") : "暂无可核验平台命中。",
+    "",
+    "事件摘要与争议点：",
+    sanitizePublicLine(radar.aiAssessment.conclusion),
+    `主要争议点：${radarList(cleanList(radar.topDisputePoints))}`,
+    "",
+    "关键传播节点：",
+    `初始节点：${radarList(cleanList(radar.propagationNodes.initial))}`,
+    `核心节点：${radarList(cleanList(radar.propagationNodes.core))}`,
+    `高影响节点：${radarList(cleanList(radar.propagationNodes.highImpact))}`,
+    `关联媒体/组织：${radarList(cleanList(radar.propagationNodes.relatedEntities))}`,
+    `新增异常账号：${radarList(cleanList(radar.propagationNodes.abnormalAccounts))}`,
+    "",
+    "相关链接：",
+    sourceLinkLines.length > 0
+      ? sourceLinkLines.join("\n")
+      : "暂无可核验原文链接。",
+    "",
+    "传播研判：",
+    `阶段：${radar.propagation.phase}`,
+    `速度：${radar.propagation.speed}`,
+    `跨平台扩散：${radar.propagation.crossPlatformDiffusion}`,
+    `讨论增长：${radar.propagation.discussionGrowth}`,
+    `预测：${radar.propagation.forecast}`,
+    `路径：${path}`,
+    "",
+    "AI 评估：",
+    `事件类型：${radar.aiAssessment.eventType}`,
+    `影响范围：${radar.aiAssessment.scope}`,
+    `持续性：${radar.aiAssessment.persistence}`,
+    `异常等级：${radar.aiAssessment.anomalyLevel}`,
+    `可信度：${radar.aiAssessment.credibility}`,
+    `关注指数：${radar.aiAssessment.attentionIndex} / 100`,
+    `结论：${sanitizePublicLine(radar.aiAssessment.conclusion)}`,
+    "",
+    "雷达预警与建议：",
+    `预警：${radarList(cleanList(radar.alerts))}`,
+    `建议：${radarList(cleanList(radar.suggestedActions))}`,
+    decisionReason ? `推送判断：${decisionReason}` : "",
+    "",
+    `数据说明：${radar.evidenceNote}`,
   ]
     .filter((line) => line !== "")
     .join("\n");

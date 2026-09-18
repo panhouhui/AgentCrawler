@@ -1,6 +1,9 @@
 import type { AgentRegistry } from "../../agents/registry";
 import { dispatchKanMessage } from "../../integrations/kan/client";
-import { SOCIAL_FUSION_KAN_ROUTE_ID } from "../../integrations/kan/config";
+import {
+  findKanPushRoute,
+  SOCIAL_FUSION_KAN_ROUTE_ID,
+} from "../../integrations/kan/config";
 import type { ToolRegistry } from "../../tools/registry";
 import { SOCIAL_PLATFORM_CRAWLER_TOOLS } from "../../tools/crawler-tools";
 import {
@@ -23,8 +26,18 @@ import {
   buildSocialFusionDedupeFingerprint,
   buildSocialFusionDedupeKey,
 } from "./dedupe";
+import {
+  mergeSuccessfulKanChannelIds,
+  missingKanChannelIds,
+  successfulKanChannelIdsFromPayload,
+} from "./kan-delivery";
 import { deterministicFusion, sanitizeFusedSocialEvent } from "./fusion";
 import { stableEventKey } from "./json";
+import { mergeEvidenceAnchorItems } from "./evidence-anchor";
+import {
+  buildGlobalRadarEvent,
+  createGlobalRadarEventId,
+} from "./radar";
 import {
   parseFusedSocialEvent,
   parsePlatformReport,
@@ -35,8 +48,8 @@ import {
 } from "./schemas";
 import {
   renderFusedEvent,
+  renderGlobalRadarKanMessage,
   renderPlatformReport,
-  renderSocialFusionKanMessage,
 } from "./renderers";
 import { createRouteBackedSocialAgentRunner } from "./runner";
 import {
@@ -52,6 +65,7 @@ import {
   insertSocialPlatformEvidence,
   isSocialMonitorStopRequested,
   findRecentSocialKanDuplicate,
+  listPendingSocialKanQueue,
   updateSocialCandidateEvent,
   updateSocialMonitorRun,
   upsertSocialKanQueue,
@@ -62,6 +76,7 @@ import {
 } from "../../store/social-monitor";
 import {
   saveSocialPlatformReport,
+  getSocialRadarEventContext,
   upsertSocialFusedEvent,
 } from "../../store/social-events";
 import { createLogger } from "../../logger";
@@ -664,6 +679,8 @@ export async function runAutonomousSocialMonitor(
         { cycle, platforms, retentionDays, maxCandidates },
       );
 
+      await retryPendingKanDeliveries(input.runId);
+
       const discovery = await discoverCandidateEvents({
         runId: input.runId,
         toolRegistry: input.toolRegistry,
@@ -925,18 +942,30 @@ export async function runAutonomousSocialMonitor(
           reports,
           abortSignal: input.abortSignal,
         });
+        const existingRadar = await getSocialRadarEventContext(fused.event_key);
+        const radar = buildGlobalRadarEvent({
+          event: fused,
+          platformReports: reports,
+          eventId: existingRadar?.radarEventId ?? createGlobalRadarEventId(),
+          firstSeenAt: existingRadar?.firstSeenAt ?? Math.floor(Date.now() / 1000),
+          updatedAt: Math.floor(Date.now() / 1000),
+          monitoredPlatformCount: platforms.length,
+          history: existingRadar?.snapshots,
+        });
         const renderedFusion = renderFusedEvent(fused);
 
         await upsertSocialFusedEvent({
           id: crypto.randomUUID(),
           event: fused,
-          renderedText: renderedFusion,
+          renderedText: renderGlobalRadarKanMessage({ radar }),
+          radar,
         });
 
         const dedupeFingerprint = buildSocialFusionDedupeFingerprint({
           fused,
           reports,
           evidenceBundles: evidenceResult.bundles,
+          candidate: draft,
         });
         const dedupeKey = buildSocialFusionDedupeKey(dedupeFingerprint, fused.event_key);
         const kanDecision = buildKanDecision(fused, reports);
@@ -948,7 +977,20 @@ export async function runAutonomousSocialMonitor(
               lookbackSeconds: retentionDays * SECONDS_PER_DAY,
             })
           : null;
-        if (duplicateMatch) {
+        const configuredKanChannelIds =
+          findKanPushRoute(SOCIAL_FUSION_KAN_ROUTE_ID)?.channelIds ?? [];
+        const channelsToSend = duplicateMatch
+          ? missingKanChannelIds(
+              configuredKanChannelIds,
+              duplicateMatch.deliveredChannelIds,
+            )
+          : configuredKanChannelIds;
+        const fullyDeliveredDuplicate = Boolean(
+          duplicateMatch &&
+          configuredKanChannelIds.length > 0 &&
+          channelsToSend.length === 0,
+        );
+        if (fullyDeliveredDuplicate && duplicateMatch) {
           await step(
             input.runId,
             SOCIAL_FUSION_AGENT_ID,
@@ -963,15 +1005,32 @@ export async function runAutonomousSocialMonitor(
             },
           );
         }
-        const kanMessage = renderSocialFusionKanMessage({
-          event: fused,
-          platformReports: reports,
+        const kanMessage = renderGlobalRadarKanMessage({
+          radar,
           decisionReason: kanDecision.reason,
         });
-        const kanDelivery = kanDecision.shouldQueue && !duplicateMatch
-          ? await dispatchSocialFusionKanMessage(kanMessage, fused, dedupeKey)
+        const kanDelivery = kanDecision.shouldQueue && !fullyDeliveredDuplicate
+          ? await dispatchSocialFusionKanMessage(
+              kanMessage,
+              fused,
+              dedupeKey,
+              channelsToSend.length > 0 ? channelsToSend : undefined,
+            )
           : null;
-        const kanQueueStatus = duplicateMatch
+        const successfulChannelIds = mergeSuccessfulKanChannelIds(
+          duplicateMatch?.deliveredChannelIds ?? [],
+          { delivery: kanDelivery },
+        );
+        const deliveryWithCoverage = kanDelivery
+          ? {
+              ...kanDelivery,
+              attemptedChannelIds: channelsToSend,
+              successfulChannelIds,
+            }
+          : duplicateMatch
+            ? { successfulChannelIds }
+            : null;
+        const kanQueueStatus = fullyDeliveredDuplicate
           ? "skipped"
           : kanDecision.shouldQueue
           ? kanDelivery?.ok
@@ -979,8 +1038,10 @@ export async function runAutonomousSocialMonitor(
             : "pending"
           : "held";
         const kanQueueReason =
-          duplicateMatch
+          fullyDeliveredDuplicate && duplicateMatch
             ? duplicateReason(duplicateMatch)
+            : duplicateMatch && kanDelivery?.ok
+              ? `${kanDecision.reason}；已仅向 ${channelsToSend.length} 个未送达或新增频道补发。`
             : kanDelivery?.ok || !kanDecision.shouldQueue
             ? kanDecision.reason
             : `${kanDecision.reason}；真实推送失败：${kanDelivery?.error ?? "社交融合 Kan 路由未配置完整"}`;
@@ -1015,6 +1076,12 @@ export async function runAutonomousSocialMonitor(
           payload: {
             dryRun: false,
             event: fused,
+            candidateAnchor: {
+              platform: draft.platform,
+              title: draft.title,
+              raw: draft.raw,
+            },
+            radar,
             platformReports: reports,
             platformEvidence: evidenceResult.bundles.map((bundle) => ({
               platform: bundle.signal.platform,
@@ -1025,7 +1092,7 @@ export async function runAutonomousSocialMonitor(
             })),
             message: kanMessage,
             decision: kanDecisionWithDedupe,
-            delivery: kanDelivery,
+            delivery: deliveryWithCoverage,
             routeId: SOCIAL_FUSION_KAN_ROUTE_ID,
             dedupe: {
               key: dedupeKey,
@@ -1264,7 +1331,7 @@ async function searchCrossPlatformEvidence(input: {
       currentStep: `${PLATFORM_LABELS[platform]} 正在复核同一事件`,
     });
 
-    const tool = await runCrawlerTool({
+    const crawlerTool = await runCrawlerTool({
       toolRegistry: input.toolRegistry,
       platform,
       mode: input.mode,
@@ -1273,6 +1340,25 @@ async function searchCrossPlatformEvidence(input: {
       retentionDays: input.retentionDays,
       phase: "search",
     });
+    const sourceAnchorItems = platform === input.candidate.platform
+      ? candidateEvidenceItems(input.candidate.raw)
+      : [];
+    const anchoredItems = mergeEvidenceAnchorItems(
+      crawlerTool.evidenceItems,
+      sourceAnchorItems,
+      MAX_STORED_ARRAY,
+    );
+    const tool: ToolExecutionSummary = sourceAnchorItems.length > 0
+      ? {
+          ...crawlerTool,
+          isError: false,
+          qualityStatus: "real_data",
+          recordCount: anchoredItems.length,
+          rawRecordCount: Math.max(crawlerTool.rawRecordCount, anchoredItems.length),
+          evidenceItems: anchoredItems,
+          evidenceStatus: "found",
+        }
+      : crawlerTool;
     const previous = currentPlatformState(platformStates, platform);
     const now = Math.floor(Date.now() / 1000);
     const fallbackReflection = fallbackReflectionForTool(
@@ -1911,9 +1997,10 @@ function evidenceMatchesEvent(item: NormalizedEvidenceItem, eventText: string): 
     item.sourceName,
     item.author,
   ].filter(Boolean).join(" "));
-  const hitCount = terms.filter((term) => haystack.includes(term)).length;
-  const requiredHits = terms.length >= 4 || eventText.length >= 18 ? 2 : 1;
-  return hitCount >= Math.min(requiredHits, terms.length);
+  const hits = terms.filter((term) => haystack.includes(term));
+  if (hits.some((term) => term.length >= 8)) return true;
+  return hits.length >= Math.min(2, terms.length) &&
+    hits.some((term) => term.length >= 4);
 }
 
 function matchTerms(eventText: string): string[] {
@@ -1922,11 +2009,13 @@ function matchTerms(eventText: string): string[] {
   const terms = new Set<string>();
   for (const term of rawTerms) {
     if (isGenericTerm(term)) continue;
-    terms.add(term);
-    if (/^[\p{Script=Han}]+$/u.test(term) && term.length > 3) {
-      for (let index = 0; index < term.length - 1; index += 1) {
-        const gram = term.slice(index, index + 2);
-        if (!isGenericTerm(gram)) terms.add(gram);
+    if (!/^[\p{Script=Han}]+$/u.test(term) || term.length <= 8) terms.add(term);
+    if (/^[\p{Script=Han}]+$/u.test(term) && term.length > 4) {
+      for (const size of [4, 3]) {
+        for (let index = 0; index <= term.length - size; index += 1) {
+          const gram = term.slice(index, index + size);
+          if (!isGenericTerm(gram)) terms.add(gram);
+        }
       }
     }
   }
@@ -1943,6 +2032,23 @@ function isGenericTerm(term: string): boolean {
     "消息",
     "内容",
     "平台",
+    "中国",
+    "中國",
+    "中共",
+    "习近平",
+    "習近平",
+    "政治",
+    "安全",
+    "国家安全",
+    "反华",
+    "反華",
+    "传播",
+    "傳播",
+    "言论",
+    "言論",
+    "视频",
+    "新聞",
+    "新闻",
   ]).has(term);
 }
 
@@ -2239,6 +2345,43 @@ function fallbackChinaGate(signal: LightweightSocialSignal): ChinaRelevanceResul
   });
 }
 
+const LOW = decode("\u4f4e");
+const MEDIUM = decode("\u4e2d");
+const HIGH = decode("\u9ad8");
+const CRITICAL = decode("\u4e25\u91cd");
+const RISING = decode("\u4e0a\u5347");
+const STABLE = decode("\u7a33\u5b9a");
+const FALLING = decode("\u4e0b\u964d");
+const PUSH_PREFIX = "推送判断：已满足政治安全风险、至少一个平台可核验发现和升级触发条件；";
+const NO_POLITICAL = decode("\u6682\u4e0d\u63a8\u9001\uff1a\u672a\u5f62\u6210\u660e\u786e\u7684\u4e2d\u56fd\u653f\u6cbb\u5b89\u5168/\u56fd\u5bb6\u5b89\u5168/\u4e0d\u5f53\u653f\u6cbb\u8a00\u8bba\u98ce\u9669\u8bc1\u636e\u3002");
+const NO_MULTIPLATFORM = decode("\u6682\u4e0d\u63a8\u9001\uff1a\u653f\u6cbb\u5b89\u5168\u98ce\u9669\u5b58\u5728\uff0c\u4f46\u8de8\u5e73\u53f0\u4ea4\u53c9\u9a8c\u8bc1\u4e0d\u8db3\uff0c\u9700\u8981\u7ee7\u7eed\u89c2\u5bdf\u3002");
+const NO_ESCALATION = decode("\u6682\u4e0d\u63a8\u9001\uff1a\u5df2\u8fdb\u5165\u6301\u7eed\u76d1\u63a7\uff0c\u4f46\u5347\u7ea7\u89e6\u53d1\u6761\u4ef6\u672a\u6ee1\u8db3\uff1b\u9700\u8981\u5f71\u54cd\u7b49\u7ea7\u8fbe\u5230\u9ad8/\u4e25\u91cd\uff0c\u540c\u4e00\u4e8b\u4ef6\u7f6e\u4fe1\u5ea6>=70%\uff0c\u6216\u4f20\u64ad\u8d8b\u52bf\u4e0a\u5347\u3002");
+function decode(value: string): string { return value.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16))); }
+
+function kanImpactLabel(value: FusedSocialEvent["impact_level"]): string {
+  const labels: Record<FusedSocialEvent["impact_level"], string> = {
+    Low: LOW,
+    Medium: MEDIUM,
+    High: HIGH,
+    Critical: CRITICAL,
+  };
+  return `${labels[value]}(${value})`;
+}
+
+function kanTrendLabel(value: FusedSocialEvent["trend"]): string {
+  const labels: Record<FusedSocialEvent["trend"], string> = {
+    rising: RISING,
+    stable: STABLE,
+    declining: FALLING,
+    uncertain: "不确定",
+  };
+  return `${labels[value]}(${value})`;
+}
+
+function kanConfidenceLabel(value: number): string {
+  return `${Math.round(value * 100)}%`;
+}
+
 function buildKanDecision(
   fused: FusedSocialEvent,
   reports: readonly PlatformReport[],
@@ -2249,36 +2392,67 @@ function buildKanDecision(
       report.detection_status !== "not_found" &&
       isPoliticalSecurityThreat(report.china_relevance),
   ).length;
-  const politicallyRelevant =
-    politicalThreatCount >= 1 &&
-    reports.some(
-      (report) =>
-        report.detection_status !== "not_found" &&
-        report.china_relevance.is_china_related &&
-        report.china_relevance.score >= 0.6,
-    );
+  const hasStrongChinaRelevance = reports.some(
+    (report) =>
+      report.detection_status !== "not_found" &&
+      report.china_relevance.is_china_related &&
+      report.china_relevance.score >= 0.6,
+  );
+  const politicallyRelevant = politicalThreatCount >= 1 && hasStrongChinaRelevance;
+  const hasMultiPlatformEvidence = foundCount >= 1;
   const highImpact = fused.impact_level === "High" || fused.impact_level === "Critical";
   const confident = fused.same_event_confidence >= 0.7;
   const rising = fused.trend === "rising";
+  const escalationTriggers = [
+    highImpact ? `${decode("\u5f71\u54cd\u7b49\u7ea7")} ${kanImpactLabel(fused.impact_level)}` : "",
+    confident ? `${decode("\u540c\u4e00\u4e8b\u4ef6\u7f6e\u4fe1\u5ea6")} ${kanConfidenceLabel(fused.same_event_confidence)} (>=70%)` : "",
+    rising ? `${decode("\u4f20\u64ad\u8d8b\u52bf")} ${kanTrendLabel(fused.trend)}` : "",
+  ].filter(Boolean);
+  const currentSignals =
+    `${decode("\u5f53\u524d\uff1a\u53d1\u73b0\u5e73\u53f0")} ${foundCount} ${decode("\u4e2a")}, ` +
+    `${decode("\u653f\u6cbb\u5b89\u5168\u98ce\u9669\u8bc1\u636e\u5e73\u53f0")} ${politicalThreatCount} ${decode("\u4e2a")}, ` +
+    `${decode("\u5f71\u54cd\u7b49\u7ea7")} ${kanImpactLabel(fused.impact_level)}, ` +
+    `${decode("\u540c\u4e00\u4e8b\u4ef6\u7f6e\u4fe1\u5ea6")} ${kanConfidenceLabel(fused.same_event_confidence)}, ` +
+    `${decode("\u4f20\u64ad\u8d8b\u52bf")} ${kanTrendLabel(fused.trend)}.`;
   const shouldQueue =
     politicallyRelevant &&
-    foundCount >= 2 &&
+    hasMultiPlatformEvidence &&
     (highImpact || confident || rising);
+
+  if (shouldQueue) {
+    return {
+      shouldQueue,
+      reason:
+        PUSH_PREFIX +
+        `${decode("\u89e6\u53d1\u9879")}: ${escalationTriggers.join("; ")}. ` +
+        currentSignals,
+    };
+  }
+
+  if (!politicallyRelevant) {
+    return {
+      shouldQueue,
+      reason: NO_POLITICAL + currentSignals,
+    };
+  }
+
+  if (!hasMultiPlatformEvidence) {
+    return {
+      shouldQueue,
+      reason: NO_MULTIPLATFORM + currentSignals,
+    };
+  }
 
   return {
     shouldQueue,
-    reason: shouldQueue
-      ? "达到 Kan 推送阈值：至少两个平台发现，且属于中国政治安全/国家安全/不当政治言论风险，影响等级、置信度或趋势满足条件。"
-      : politicallyRelevant
-        ? "未达到 Kan 推送阈值，进入持续监控；本次不会执行真实推送。"
-        : "未达到中国政治安全威胁推送门槛：普通中国相关、非政治安全风险、证据不足或不当言论威胁不明确的事件不推送。",
+    reason: NO_ESCALATION + currentSignals,
   };
 }
-
 async function dispatchSocialFusionKanMessage(
   message: string,
   fused: FusedSocialEvent,
   dedupeKey: string,
+  channelIds?: readonly string[],
 ): Promise<{ readonly ok: boolean; readonly error: string | null; readonly result?: unknown }> {
   try {
     const result = await dispatchKanMessage({
@@ -2286,6 +2460,7 @@ async function dispatchSocialFusionKanMessage(
       message,
       dryRun: false,
       dedupeKey,
+      channelIds,
       metadata: {
         eventKey: fused.event_key,
         dedupeKey,
@@ -2303,11 +2478,127 @@ async function dispatchSocialFusionKanMessage(
   }
 }
 
+async function retryPendingKanDeliveries(runId: string): Promise<void> {
+  const route = findKanPushRoute(SOCIAL_FUSION_KAN_ROUTE_ID);
+  if (!route || route.channelIds.length === 0) return;
+
+  const pendingItems = await listPendingSocialKanQueue(20);
+  for (const queue of pendingItems) {
+    const message = typeof queue.payload.message === "string"
+      ? queue.payload.message.trim()
+      : "";
+    if (!message) continue;
+
+    const previousSuccessful = successfulKanChannelIdsFromPayload(queue.payload);
+    const missingChannelIds = missingKanChannelIds(route.channelIds, previousSuccessful);
+    if (missingChannelIds.length === 0) {
+      await upsertSocialKanQueue({
+        ...queue,
+        status: "sent",
+        reason: `${removeDeliveryFailureSuffix(queue.reason)}；所有当前配置频道均已送达。`,
+        payload: {
+          ...queue.payload,
+          delivery: {
+            ...(asRecord(queue.payload.delivery) ?? {}),
+            successfulChannelIds: previousSuccessful,
+          },
+        },
+      });
+      continue;
+    }
+
+    let retryResult: Awaited<ReturnType<typeof dispatchKanMessage>> | null = null;
+    let retryError: string | null = null;
+    try {
+      retryResult = await dispatchKanMessage({
+        routeId: SOCIAL_FUSION_KAN_ROUTE_ID,
+        message,
+        channelIds: missingChannelIds,
+        dedupeKey: queue.dedupeKey,
+        dryRun: false,
+        metadata: {
+          eventKey: queue.fusedEventKey,
+          retryOfQueueId: queue.id,
+        },
+      });
+      retryError = retryResult.deliveries.find((delivery) => delivery.error)?.error ?? null;
+    } catch (error) {
+      retryError = error instanceof Error ? error.message : String(error);
+    }
+
+    const successfulChannelIds = mergeSuccessfulKanChannelIds(
+      previousSuccessful,
+      { delivery: { result: retryResult } },
+    );
+    const stillMissing = missingKanChannelIds(route.channelIds, successfulChannelIds);
+    const sent = stillMissing.length === 0;
+    const previousDelivery = asRecord(queue.payload.delivery);
+    const previousAttempts = Array.isArray(previousDelivery?.attempts)
+      ? previousDelivery.attempts
+      : [];
+    await upsertSocialKanQueue({
+      ...queue,
+      status: sent ? "sent" : "pending",
+      reason: sent
+        ? `${removeDeliveryFailureSuffix(queue.reason)}；失败频道及新增频道补发完成。`
+        : `${removeDeliveryFailureSuffix(queue.reason)}；仍有 ${stillMissing.length} 个频道待补发：${retryError ?? "未知错误"}`,
+      payload: {
+        ...queue.payload,
+        delivery: {
+          ok: sent,
+          error: retryError,
+          result: retryResult,
+          successfulChannelIds,
+          pendingChannelIds: stillMissing,
+          attempts: [
+            ...previousAttempts,
+            {
+              attemptedAt: new Date().toISOString(),
+              channelIds: missingChannelIds,
+              result: retryResult,
+              error: retryError,
+            },
+          ].slice(-10),
+        },
+      },
+    });
+    await step(
+      runId,
+      SOCIAL_FUSION_AGENT_ID,
+      "kan_channel_retry",
+      sent ? "completed" : "pending",
+      sent
+        ? `Kan 待推送记录 ${queue.id} 的失败频道及新增频道已补发完成`
+        : `Kan 待推送记录 ${queue.id} 仍有 ${stillMissing.length} 个频道发送失败`,
+      {
+        queueId: queue.id,
+        attemptedChannelIds: missingChannelIds,
+        successfulChannelIds,
+        pendingChannelIds: stillMissing,
+      },
+    );
+  }
+}
+
+function removeDeliveryFailureSuffix(reason: string): string {
+  return reason
+    .replace(/；真实推送失败：[\s\S]*$/, "")
+    .replace(/；仍有 \d+ 个频道待补发：[\s\S]*$/, "")
+    .replace(/；失败频道及新增频道补发完成。$/, "")
+    .replace(/；所有当前配置频道均已送达。$/, "");
+}
+
 function duplicateReason(match: SocialKanDuplicateMatch): string {
   const reasons = match.comparison.reasons.length > 0
     ? match.comparison.reasons.join("；")
     : "事件指纹高度相似";
-  return `重复事件已过滤：与历史已推送事件 ${match.queue.id} 相同或高度相似（${reasons}）。本次只更新监控记录，不再重复推送 Kan。`;
+  const statusLabel =
+    match.queue.status === "sent"
+      ? "历史已推送事件"
+      : match.queue.status === "pending"
+        ? "历史待推送记录"
+        : "历史 Kan 记录";
+  return `重复事件已过滤：与${statusLabel} ${match.queue.id} 相同或高度相似（${reasons}）。本次只更新监控记录，不再重复推送 Kan。`;
 }
 
 function summarizeGatePattern(

@@ -1,0 +1,37 @@
+services:
+  postgres:
+    ports: !override
+      - "127.0.0.1:15432:5432"
+
+  qdrant:
+    ports: !override
+      - "127.0.0.1:16333:6333"
+
+  mem0:
+    ports: !override
+      - "127.0.0.1:18050:8000"
+
+  app:
+    build:
+      context: ..
+      dockerfile: AgentHub/Dockerfile.agentcrawler
+    environment:
+      AGENT_HUB_ROOT: /opt/agenthub
+      CRAWLER_ROOT: /opt/agenthub/Crawler
+      MODEL_ENV_ROOT: /opt/agenthub/env/model_env
+      CRAWLER_ENV_ROOT: /opt/agenthub/env/Crawler_env
+      AGENTHUB_TEST_OUTPUT_ROOT: /opt/agenthub/test
+      AGENTHUB_CRAWLER_OUTPUT_DIR: /opt/agenthub/test/crawler-tools
+      AGENTHUB_PYTHON: /opt/agenthub-py/bin/python
+      AGENTHUB_CRAWLER_USE_PROXY: "0"
+      OPENCROW_WEB_HOST: 0.0.0.0
+      OPENCROW_WEB_PORT: "48080"
+      OPENCROW_INTERNAL_API_HOST: 127.0.0.1
+      OPENCROW_INTERNAL_API_PORT: "48081"
+      OPENCROW_SIGE_ENABLED: "false"
+    volumes:
+      - ../Crawler:/opt/agenthub/Crawler:ro
+      - ../env:/opt/agenthub/env:ro
+      - ../test:/opt/agenthub/test
+    ports: !override
+      - "127.0.0.1:48086:48080"

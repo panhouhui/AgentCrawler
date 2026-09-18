@@ -1,169 +1,198 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import {
-  buildSocialFusionDedupeFingerprint,
-  buildSocialFusionDedupeKey,
   compareSocialFusionDedupeFingerprints,
+  deriveSocialFusionDedupeFingerprintFromPayload,
+  type SocialFusionDedupeFingerprint,
 } from "./dedupe";
-import type { FusedSocialEvent, PlatformReport } from "./schemas";
 
-const gate: PlatformReport["china_relevance"] = {
-  china_relevance: "direct",
-  is_china_related: true,
-  score: 0.9,
-  matched_dimensions: ["person"],
-  evidence: ["中国相关"],
-  threat_to_china_security: true,
-  negative_to_china: true,
-  china_impact: "threatening",
-  risk_score: 0.82,
-  risk_categories: ["disinformation"],
-  risk_evidence: ["负面舆论"],
-  deep_crawl_allowed: true,
-  recommended_action: "deep_crawl",
-  reason: "测试",
-};
-
-function fused(title: string, key: string, nodes: readonly string[] = []): FusedSocialEvent {
+function fingerprint(
+  overrides: Partial<SocialFusionDedupeFingerprint>,
+): SocialFusionDedupeFingerprint {
   return {
-    schema: "social_fusion_v1",
-    event_key: key,
-    event_title: title,
-    same_event_confidence: 0.88,
-    impact_level: "High",
-    trend: "rising",
-    platform_sequence: ["x", "youtube"],
-    platform_counts: { x: 2, youtube: 1 },
-    core_propagation_nodes: [...nodes],
-    relationship_summary: "测试关系链",
-    recommended_actions: ["持续监控"],
-    evidence: [],
+    fingerprintVersion: 2,
+    eventKey: overrides.eventKey ?? "event-a",
+    eventTitle: overrides.eventTitle ?? "事件 A",
+    urls: overrides.urls ?? [],
+    nodes: overrides.nodes ?? [],
+    titleTokens: overrides.titleTokens ?? [],
+    platforms: overrides.platforms ?? [],
   };
 }
 
-function xReport(title: string, url: string): PlatformReport {
-  return {
-    schema: "x_alert_v1",
-    platform: "x",
-    event_key: "x-event",
-    event_title: title,
-    detection_status: "found",
-    observed_at: 1,
-    china_relevance: gate,
-    summary: title,
-    evidence: [`推文 URL：${url}`],
-    regions: ["香港"],
-    core_nodes: ["@public_node"],
-    hashtag: "",
-    discussion_growth_percent: 300,
-    participant_accounts: 1200,
-    main_source: "公开账号",
-    status: "rapid_spread",
-  };
-}
-
-function youtubeReport(title: string, url: string): PlatformReport {
-  return {
-    schema: "youtube_alert_v1",
-    platform: "youtube",
-    event_key: "youtube-event",
-    event_title: title,
-    detection_status: "found",
-    observed_at: 1,
-    china_relevance: gate,
-    summary: title,
-    evidence: [`视频 URL：${url}`],
-    regions: [],
-    core_nodes: ["频道A"],
-    item_count: 1,
-    growth_percent: 120,
-    source_nodes: ["频道A"],
-    matched_terms: ["朱镕基"],
-    content_overlap_percent: 80,
-    status: "found",
-  };
-}
-
-describe("social fusion dedupe fingerprint", () => {
-  it("treats changed titles with shared public URL as a duplicate", () => {
-    const first = buildSocialFusionDedupeFingerprint({
-      fused: fused("朱镕基去世传言快速传播", "event-a"),
-      reports: [
-        xReport("朱镕基去世传言", "https://twitter.com/example/status/123?utm_source=x"),
-        youtubeReport("朱镕基相关视频", "https://youtu.be/abc123?feature=shared"),
-      ],
-    });
-    const second = buildSocialFusionDedupeFingerprint({
-      fused: fused("朱镕基病逝消息在社交平台扩散", "event-b"),
-      reports: [
-        xReport("朱镕基病逝消息", "https://x.com/example/status/123"),
-        youtubeReport("朱镕基相关视频再传播", "https://youtube.com/watch?v=abc123"),
-      ],
+describe("social fusion dedupe", () => {
+  test("ignores LIHKG static faces and YouTube search/channel URLs", () => {
+    const derived = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_title: "习近平健康传言" },
+      platformEvidence: [{
+        platform: "youtube",
+        status: "found",
+        evidence: { items: [
+          { url: "https://lihkg.com/assets/faces/pig/wail.gif" },
+          { url: "https://youtube.com/results?search_query=xi+rumor" },
+          { url: "https://youtube.com/@ntdchinese" },
+        ] },
+      }],
     });
 
-    const comparison = compareSocialFusionDedupeFingerprints(second, first);
-
-    expect(comparison.isDuplicate).toBe(true);
-    expect(comparison.commonUrls.length).toBeGreaterThanOrEqual(1);
+    expect(derived.urls).toEqual([]);
   });
 
-  it("treats changed titles with shared nodes and title entities as a duplicate", () => {
-    const first = buildSocialFusionDedupeFingerprint({
-      fused: fused("朱镕基去世传言快速传播", "event-a", ["公开频道A", "公开账号B"]),
-      reports: [xReport("朱镕基去世传言", "")],
-    });
-    const second = buildSocialFusionDedupeFingerprint({
-      fused: fused("朱镕基病逝消息在社交平台扩散", "event-b", ["公开频道A", "公开账号B"]),
-      reports: [xReport("朱镕基病逝消息", "")],
+  test("unwraps LIHKG redirect URLs to the underlying X status", () => {
+    const derived = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_title: "习近平健康传言" },
+      platformEvidence: [{
+        platform: "lihkg",
+        status: "found",
+        evidence: { items: [{
+          title: "习近平健康传言持续传播",
+          url: "https://r.lihkg.com/link?u=https%3A%2F%2Fx.com%2Fabc%2Fstatus%2F123456789%3Fs%3D46&h=abc",
+        }] },
+      }],
     });
 
-    const comparison = compareSocialFusionDedupeFingerprints(second, first);
-
-    expect(comparison.isDuplicate).toBe(true);
-    expect(comparison.commonNodes.length).toBeGreaterThanOrEqual(2);
+    expect(derived.urls).toEqual(["https://x.com/abc/status/123456789"]);
   });
 
-  it("does not treat unrelated events as duplicates", () => {
-    const first = buildSocialFusionDedupeFingerprint({
-      fused: fused("朱镕基相关传言扩散", "event-a", ["公开频道A"]),
-      reports: [xReport("朱镕基相关传言", "https://x.com/example/status/123")],
-    });
-    const second = buildSocialFusionDedupeFingerprint({
-      fused: fused("南海军事演习视频传播", "event-b", ["公开频道Z"]),
-      reports: [youtubeReport("南海军事演习视频", "https://youtube.com/watch?v=def456")],
+  test("normalizes LIHKG page URLs to one thread anchor", () => {
+    const derived = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_title: "香港支联会案件判决事件" },
+      platformEvidence: [{
+        platform: "lihkg",
+        status: "found",
+        evidence: { items: [{
+          title: "香港支联会案件判决事件持续讨论",
+          url: "https://lihkg.com/thread/4157622/page/2?ref=search",
+        }] },
+      }],
     });
 
-    const comparison = compareSocialFusionDedupeFingerprints(second, first);
+    expect(derived.urls).toEqual(["https://lihkg.com/thread/4157622"]);
+  });
+
+  test("treats the same X status as a duplicate", () => {
+    const comparison = compareSocialFusionDedupeFingerprints(
+      fingerprint({ urls: ["https://x.com/abc/status/123456789"] }),
+      fingerprint({ urls: ["https://x.com/abc/status/123456789"] }),
+    );
+
+    expect(comparison.isDuplicate).toBe(true);
+    expect(comparison.score).toBeGreaterThanOrEqual(0.95);
+  });
+
+  test("does not mark generic title boilerplate as a duplicate", () => {
+    const current = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_title: "上海访民维权事件" },
+      platformReports: [
+        {
+          platform: "x",
+          detection_status: "found",
+          summary: "facebook github instagram telegram youtube https www com 不要求真 也发现了",
+        },
+      ],
+    });
+    const previous = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_title: "习近平健康传言" },
+      platformReports: [
+        {
+          platform: "youtube",
+          detection_status: "found",
+          summary: "facebook github instagram telegram youtube https www com 不要求真 也发现了",
+        },
+      ],
+    });
+    const comparison = compareSocialFusionDedupeFingerprints(
+      current,
+      previous,
+    );
 
     expect(comparison.isDuplicate).toBe(false);
   });
 
-  it("builds a stable URL-based key after URL canonicalization", () => {
-    const first = buildSocialFusionDedupeFingerprint({
-      fused: fused("事件 A", "event-a"),
-      reports: [xReport("事件 A", "https://twitter.com/example/status/123?utm_source=x")],
-    });
-    const second = buildSocialFusionDedupeFingerprint({
-      fused: fused("事件 B", "event-b"),
-      reports: [xReport("事件 B", "https://x.com/example/status/123")],
+  test("does not read unrelated raw samples from a crawler batch", () => {
+    const derived = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: { event_key: "huawei-video", event_title: "华为录像事件" },
+      platformEvidence: [{
+        platform: "telegram",
+        status: "found",
+        evidence: {
+          items: [{
+            title: "华为录像事件",
+            url: "https://t.me/channel_a/101",
+            channelName: "channel_a",
+          }],
+          samples: [{
+            title: "习近平健康传言",
+            url: "https://t.me/channel_a/102",
+          }],
+        },
+      }],
     });
 
-    expect(buildSocialFusionDedupeKey(first, "event-a")).toEqual(
-      buildSocialFusionDedupeKey(second, "event-b"),
-    );
+    expect(derived.urls).toEqual(["https://t.me/channel_a/101"]);
   });
 
-  it("treats political-security core overlap as duplicate even without shared urls", () => {
-    const first = buildSocialFusionDedupeFingerprint({
-      fused: fused("中国政治安全相关事件", "event-a", ["中国政治", "国家安全"]),
-      reports: [xReport("中国政治安全相关事件", "")],
-    });
-    const second = buildSocialFusionDedupeFingerprint({
-      fused: fused("中国政治安全相关事件更新", "event-b", ["中国政治", "国家安全"]),
-      reports: [youtubeReport("中国政治安全相关事件更新", "")],
+  test("rejects a different message from the same historical channel batch", () => {
+    const derived = deriveSocialFusionDedupeFingerprintFromPayload({
+      event: {
+        event_key: "huawei-video",
+        event_title: "华为大审判54秒偷窃录像曝光事件",
+      },
+      platformEvidence: [{
+        platform: "telegram",
+        status: "found",
+        evidence: {
+          items: [
+            {
+              title: "华为大审判54秒偷窃录像曝光",
+              url: "https://t.me/channel_a/101",
+              channelName: "channel_a",
+            },
+            {
+              title: "习近平在印度倒下访美取消",
+              url: "https://t.me/channel_a/102",
+              channelName: "channel_a",
+            },
+          ],
+        },
+      }],
     });
 
-    const comparison = compareSocialFusionDedupeFingerprints(second, first);
+    expect(derived.urls).toEqual(["https://t.me/channel_a/101"]);
+  });
 
-    expect(comparison.isDuplicate).toBe(true);
+  test("does not dedupe different events that only share political risk words", () => {
+    const comparison = compareSocialFusionDedupeFingerprints(
+      fingerprint({
+        eventKey: "telegram-hate-speech",
+        eventTitle: "Telegram平台极端反华仇恨言论事件",
+        titleTokens: ["telegram", "极端反华", "仇恨言论", "反华"],
+      }),
+      fingerprint({
+        eventKey: "x-posts-spread",
+        eventTitle: "X平台账号发布反华内容传播事件",
+        titleTokens: ["反华", "发布反华", "内容传播", "政治安全"],
+      }),
+    );
+
+    expect(comparison.isDuplicate).toBe(false);
+  });
+
+  test("treats a new reliable source URL as an event update", () => {
+    const comparison = compareSocialFusionDedupeFingerprints(
+      fingerprint({
+        urls: [
+          "https://x.com/abc/status/123456789",
+          "https://t.me/channel_a/102",
+        ],
+        platforms: ["x", "telegram"],
+      }),
+      fingerprint({
+        urls: ["https://x.com/abc/status/123456789"],
+        platforms: ["x"],
+      }),
+    );
+
+    expect(comparison.isDuplicate).toBe(false);
+    expect(comparison.reasons.join(" ")).toContain("新增");
   });
 });

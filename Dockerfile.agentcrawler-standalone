@@ -1,0 +1,93 @@
+FROM node:24-bookworm-slim
+
+ENV HOME=/home/node \
+    NODE_ENV=production \
+    NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
+    BUN_CONFIG_REGISTRY=https://registry.npmmirror.com \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    OPENCROW_IN_CONTAINER=1 \
+    OPENCROW_TOOLS_SANDBOX=best-effort \
+    SETUPTOOLS_SCM_PRETEND_VERSION_FOR_AVTDL=0.0.0 \
+    AGENTHUB_PYTHON=/opt/agenthub-py/bin/python \
+    PATH="/opt/agenthub-py/bin:/usr/lib/postgresql/15/bin:${PATH}"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      bubblewrap \
+      ca-certificates \
+      git \
+      curl \
+      bash \
+      tini \
+      postgresql \
+      postgresql-client \
+      python3 \
+      python3-venv \
+      python3-pip \
+      python-is-python3 \
+      build-essential \
+      libpq-dev \
+      libasound2 \
+      libatk-bridge2.0-0 \
+      libatk1.0-0 \
+      libatspi2.0-0 \
+      libcairo2 \
+      libcups2 \
+      libdbus-1-3 \
+      libdrm2 \
+      libgbm1 \
+      libglib2.0-0 \
+      libnspr4 \
+      libnss3 \
+      libpango-1.0-0 \
+      libx11-6 \
+      libxcb1 \
+      libxcomposite1 \
+      libxdamage1 \
+      libxext6 \
+      libxfixes3 \
+      libxkbcommon0 \
+      libxrandr2 \
+      fonts-liberation \
+      fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install -g bun@1.3.14 --registry=https://registry.npmmirror.com
+
+WORKDIR /app
+COPY AgentHub/package.json AgentHub/bun.lock ./
+RUN chown -R node:node /app /home/node
+USER node
+RUN printf "registry=https://registry.npmmirror.com\n" > .npmrc
+RUN bun install --frozen-lockfile || bun install
+RUN bunx playwright install chromium
+
+USER root
+COPY Crawler /tmp/agenthub-crawler
+RUN python3 -m venv /opt/agenthub-py \
+    && /opt/agenthub-py/bin/python -m pip install --upgrade pip setuptools wheel \
+    && /opt/agenthub-py/bin/python -m pip install \
+      -r /tmp/agenthub-crawler/Telegram/requirements.txt \
+      -r /tmp/agenthub-crawler/Facebook/facebook-pages-scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/Lihkg/lihkg-scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/Lien/linkedin_scraper/requirements.txt \
+      -r /tmp/agenthub-crawler/X/X网站评论爬取/requirements.txt \
+      -r /tmp/agenthub-crawler/instagram/Threads-Scraper/requirements.txt \
+      /tmp/agenthub-crawler/YouTube/avtdl \
+      requests beautifulsoup4 lxml curl_cffi python-dotenv PyYAML pandas \
+    && rm -rf /root/.cache/pip /tmp/agenthub-crawler
+
+RUN install -d -o node -g node /home/node/.cache/ms-playwright \
+    && su node -s /bin/bash -c "/opt/agenthub-py/bin/python -m playwright install chromium"
+
+COPY --chown=node:node AgentHub .
+COPY docker-entrypoint.agentcrawler.sh /usr/local/bin/agentcrawler-entrypoint
+RUN chmod +x /usr/local/bin/agentcrawler-entrypoint \
+    && mkdir -p /opt/agenthub/test \
+    && chown -R node:node /opt/agenthub
+
+USER node
+RUN bun run tw:build
+
+USER root
+EXPOSE 48080
+ENTRYPOINT ["tini", "--", "agentcrawler-entrypoint"]

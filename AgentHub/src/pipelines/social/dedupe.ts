@@ -1,6 +1,7 @@
 import type { FusedSocialEvent, PlatformReport } from "./schemas";
 
 export interface SocialFusionDedupeFingerprint {
+  readonly fingerprintVersion: 2;
   readonly eventKey: string;
   readonly eventTitle: string;
   readonly urls: readonly string[];
@@ -19,6 +20,7 @@ export interface SocialFusionDedupeComparison {
 }
 
 interface EvidenceBundleLike {
+  readonly status?: string;
   readonly signal?: {
     readonly platform?: string;
     readonly title?: string;
@@ -65,6 +67,31 @@ const COMMON_TOKENS = new Set([
   "最新",
   "相關",
   "相关",
+  "facebook",
+  "github",
+  "instagram",
+  "lien",
+  "lihkg",
+  "netlight",
+  "ptt",
+  "telegram",
+  "webpage",
+  "preview",
+  "youtube",
+  "https",
+  "www",
+  "com",
+  "一事",
+  "一事件",
+  "不要",
+  "不要求",
+  "不要求真",
+  "也发",
+  "也發",
+  "也发现",
+  "也發現",
+  "也发现了",
+  "也發現了",
   "傳言",
   "传言",
   "討論",
@@ -92,33 +119,15 @@ const COMMON_TOKENS = new Set([
   "政权安全",
 ]);
 
-const NODE_KEYS = [
-  "channel",
-  "channelName",
-  "channel_name",
-  "chat_title",
-  "dialog_title",
-  "channel_title",
-  "room_name",
-  "board",
-  "page",
-  "page_name",
-  "author",
-  "author_username",
-  "username",
-  "screen_name",
-  "sender",
-  "source",
-  "source_name",
-  "repository",
-  "repository_name",
-  "full_name",
-] as const;
-
 export function buildSocialFusionDedupeFingerprint(input: {
   readonly fused: FusedSocialEvent;
   readonly reports: readonly PlatformReport[];
   readonly evidenceBundles?: readonly EvidenceBundleLike[];
+  readonly candidate?: {
+    readonly platform?: string;
+    readonly title?: string;
+    readonly raw?: unknown;
+  };
 }): SocialFusionDedupeFingerprint {
   const urls = new Set<string>();
   const nodes = new Set<string>();
@@ -126,32 +135,35 @@ export function buildSocialFusionDedupeFingerprint(input: {
   const platforms = new Set<string>();
 
   titleTexts.add(input.fused.event_title);
-  collectUrls(input.fused.evidence, urls);
-  for (const node of input.fused.core_propagation_nodes) addNode(nodes, node);
+
+  if (input.candidate) {
+    if (input.candidate.platform) platforms.add(input.candidate.platform);
+    if (input.candidate.title) titleTexts.add(input.candidate.title);
+    collectAnchoredEvidence(input.candidate.raw, urls, nodes);
+  }
 
   for (const report of input.reports) {
     if (report.detection_status === "not_found") continue;
     platforms.add(report.platform);
     titleTexts.add(report.event_title);
-    titleTexts.add(report.summary);
-    collectUrls(report.evidence, urls);
-    collectNodes(report, nodes);
-    collectPlatformSpecificNodes(report, nodes);
   }
 
   for (const bundle of input.evidenceBundles ?? []) {
+    if (bundle.status && bundle.status !== "found") continue;
     const signal = bundle.signal;
     if (!signal) continue;
     if (signal.platform) platforms.add(signal.platform);
-    if (signal.title) titleTexts.add(signal.title);
-    if (signal.summary) titleTexts.add(signal.summary);
-    collectUrls(signal.evidence ?? [], urls);
-    collectUrls(signal.raw, urls);
-    collectNodes(signal.raw, nodes);
-    collectTitles(signal.raw, titleTexts);
+    collectAnchoredEvidence(
+      signal.raw,
+      urls,
+      nodes,
+      titleTexts,
+      input.fused.event_title,
+    );
   }
 
   return {
+    fingerprintVersion: 2,
     eventKey: input.fused.event_key,
     eventTitle: input.fused.event_title,
     urls: [...urls].sort().slice(0, 40),
@@ -165,11 +177,6 @@ export function deriveSocialFusionDedupeFingerprintFromPayload(
   payload: Record<string, unknown>,
 ): SocialFusionDedupeFingerprint {
   const event = asRecord(payload.event);
-  const reports = Array.isArray(payload.platformReports)
-    ? payload.platformReports.filter((item): item is Record<string, unknown> =>
-        Boolean(asRecord(item)),
-      )
-    : [];
   const platformEvidence = Array.isArray(payload.platformEvidence)
     ? payload.platformEvidence.filter((item): item is Record<string, unknown> =>
         Boolean(asRecord(item)),
@@ -184,34 +191,18 @@ export function deriveSocialFusionDedupeFingerprintFromPayload(
   const eventKey = stringValue(event?.event_key) || "";
 
   if (eventTitle) titleTexts.add(eventTitle);
-  collectUrls(payload, urls);
-  collectNodes(event, nodes);
-  for (const node of arrayOfStrings(event?.core_propagation_nodes)) addNode(nodes, node);
-
-  for (const report of reports) {
-    const detection = stringValue(report.detection_status);
-    if (detection === "not_found") continue;
-    const platform = stringValue(report.platform);
-    if (platform) platforms.add(platform);
-    const title = stringValue(report.event_title) || stringValue(report.title);
-    if (title) titleTexts.add(title);
-    const summary = stringValue(report.summary);
-    if (summary) titleTexts.add(summary);
-    collectNodes(report, nodes);
-    collectUrls(report, urls);
-  }
+  collectAnchoredEvidence(payload.candidateAnchor, urls, nodes, titleTexts);
 
   for (const snapshot of platformEvidence) {
+    const status = stringValue(snapshot.status);
+    if (status && status !== "found") continue;
     const platform = stringValue(snapshot.platform);
     if (platform) platforms.add(platform);
-    const title = stringValue(snapshot.title);
-    if (title) titleTexts.add(title);
-    collectNodes(snapshot, nodes);
-    collectUrls(snapshot, urls);
-    collectTitles(snapshot, titleTexts);
+    collectAnchoredEvidence(snapshot.evidence, urls, nodes, titleTexts, eventTitle);
   }
 
   return {
+    fingerprintVersion: 2,
     eventKey,
     eventTitle,
     urls: [...urls].sort().slice(0, 40),
@@ -225,19 +216,20 @@ export function buildSocialFusionDedupeKey(
   fingerprint: SocialFusionDedupeFingerprint,
   fallbackEventKey: string,
 ): string {
-  if (fingerprint.urls.length > 0) {
-    return `social-fusion:url:${hashParts(fingerprint.urls)}`;
+  const reliableUrls = fingerprint.urls.filter(isReliableEventUrl);
+  if (reliableUrls.length > 0) {
+    return `social-fusion:v2:url:${hashParts(reliableUrls)}`;
   }
   if (fingerprint.nodes.length > 0 && fingerprint.titleTokens.length > 0) {
-    return `social-fusion:node-title:${hashParts([
+    return `social-fusion:v2:node-title:${hashParts([
       ...fingerprint.nodes.slice(0, 12),
       ...fingerprint.titleTokens.slice(0, 24),
     ])}`;
   }
   if (fingerprint.titleTokens.length > 0) {
-    return `social-fusion:title:${hashParts(fingerprint.titleTokens.slice(0, 32))}`;
+    return `social-fusion:v2:title:${hashParts(fingerprint.titleTokens.slice(0, 32))}`;
   }
-  return `social-fusion:${fallbackEventKey}`;
+  return `social-fusion:v2:${fallbackEventKey}`;
 }
 
 export function compareSocialFusionDedupeFingerprints(
@@ -249,25 +241,47 @@ export function compareSocialFusionDedupeFingerprints(
   const commonTitleTokens = intersection(current.titleTokens, previous.titleTokens);
   const titleOverlap = overlapRatio(current.titleTokens, previous.titleTokens);
   const nodeOverlap = overlapRatio(current.nodes, previous.nodes);
+  const currentReliableUrls = current.urls.filter(isReliableEventUrl);
+  const previousReliableUrls = previous.urls.filter(isReliableEventUrl);
+  const commonReliableUrls = intersection(currentReliableUrls, previousReliableUrls);
+  const newReliableUrls = difference(currentReliableUrls, previousReliableUrls);
+  const newPlatforms = difference(current.platforms, previous.platforms);
   const reasons: string[] = [];
 
-  if (commonUrls.length > 0) {
-    reasons.push(`公开 URL 重合 ${commonUrls.length} 个`);
+  if (newReliableUrls.length > 0 || newPlatforms.length > 0) {
+    if (newReliableUrls.length > 0) reasons.push(`新增可靠原帖 ${newReliableUrls.length} 个`);
+    if (newPlatforms.length > 0) reasons.push(`新增发现平台 ${newPlatforms.length} 个`);
+    return {
+      isDuplicate: false,
+      score: commonReliableUrls.length > 0 ? 0.78 : 0,
+      reasons,
+      commonUrls,
+      commonNodes,
+      commonTitleTokens,
+    };
+  }
+
+  if (commonReliableUrls.length > 0) {
+    reasons.push(`可靠原帖 URL 重合 ${commonReliableUrls.length} 个`);
     return {
       isDuplicate: true,
       score: 0.98,
       reasons,
-      commonUrls,
+      commonUrls: commonReliableUrls,
       commonNodes,
       commonTitleTokens,
     };
   }
 
-  if (commonNodes.length >= 2) {
-    reasons.push(`公开传播节点重合 ${commonNodes.length} 个`);
+  if (
+    current.eventKey &&
+    previous.eventKey &&
+    normalizeToken(current.eventKey) === normalizeToken(previous.eventKey)
+  ) {
+    reasons.push("事件 key 完全相同，且没有新增可靠证据");
     return {
       isDuplicate: true,
-      score: 0.9,
+      score: 0.94,
       reasons,
       commonUrls,
       commonNodes,
@@ -275,11 +289,17 @@ export function compareSocialFusionDedupeFingerprints(
     };
   }
 
-  if (commonNodes.length >= 1 && commonTitleTokens.length >= 2 && titleOverlap >= 0.25) {
-    reasons.push("公开节点和标题实体同时重合");
+  const hasDistinctiveTitleToken = commonTitleTokens.some(isDistinctiveTitleToken);
+  if (
+    commonNodes.length >= 1 &&
+    commonTitleTokens.length >= 6 &&
+    titleOverlap >= 0.6 &&
+    hasDistinctiveTitleToken
+  ) {
+    reasons.push("同一公开节点和高重合事件事实同时匹配");
     return {
       isDuplicate: true,
-      score: 0.86,
+      score: 0.88,
       reasons,
       commonUrls,
       commonNodes,
@@ -287,20 +307,8 @@ export function compareSocialFusionDedupeFingerprints(
     };
   }
 
-  if (hasPoliticalSecurityCoreOverlap(commonTitleTokens)) {
-    reasons.push("政治安全核心实体高度重合");
-    return {
-      isDuplicate: true,
-      score: 0.85,
-      reasons,
-      commonUrls,
-      commonNodes,
-      commonTitleTokens,
-    };
-  }
-
-  if (hasStrongCommonToken(commonTitleTokens) && commonTitleTokens.length >= 3 && titleOverlap >= 0.3) {
-    reasons.push("标题中的核心实体高度相似");
+  if (commonTitleTokens.length >= 8 && titleOverlap >= 0.72 && hasDistinctiveTitleToken) {
+    reasons.push("事件标题中的具体事实高度重合");
     return {
       isDuplicate: true,
       score: 0.84,
@@ -311,25 +319,14 @@ export function compareSocialFusionDedupeFingerprints(
     };
   }
 
-  if (commonTitleTokens.length >= 4 && titleOverlap >= 0.55) {
-    reasons.push("标题实体词高度重合");
-    return {
-      isDuplicate: true,
-      score: 0.82,
-      reasons,
-      commonUrls,
-      commonNodes,
-      commonTitleTokens,
-    };
-  }
-
   const score = Math.max(
-    commonUrls.length > 0 ? 0.98 : 0,
-    commonNodes.length > 0 ? Math.min(0.7, 0.35 + nodeOverlap * 0.35) : 0,
-    commonTitleTokens.length > 0 ? Math.min(0.72, titleOverlap * 0.72) : 0,
+    commonUrls.length > 0 ? 0.35 : 0,
+    commonNodes.length > 0 ? Math.min(0.55, 0.25 + nodeOverlap * 0.3) : 0,
+    commonTitleTokens.length > 0 ? Math.min(0.7, titleOverlap * 0.7) : 0,
   );
+  if (commonUrls.length > 0) reasons.push(`非锚点 URL 重合 ${commonUrls.length} 个`);
   if (commonNodes.length > 0) reasons.push(`公开节点部分重合 ${commonNodes.length} 个`);
-  if (commonTitleTokens.length > 0) reasons.push(`标题实体词部分重合 ${commonTitleTokens.length} 个`);
+  if (commonTitleTokens.length > 0) reasons.push(`事件事实词部分重合 ${commonTitleTokens.length} 个`);
   return {
     isDuplicate: false,
     score,
@@ -340,48 +337,56 @@ export function compareSocialFusionDedupeFingerprints(
   };
 }
 
-function collectPlatformSpecificNodes(report: PlatformReport, nodes: Set<string>): void {
-  switch (report.platform) {
-    case "telegram":
-      for (const node of [...report.channel_path, ...report.bridge_channels]) addNode(nodes, node);
-      break;
-    case "facebook":
-      for (const node of report.pages) addNode(nodes, node);
-      break;
-    case "github":
-    case "instagram":
-    case "lien":
-    case "netlight":
-    case "ptt":
-    case "youtube":
-      for (const node of report.source_nodes) addNode(nodes, node);
-      break;
-    case "x":
-      addNode(nodes, report.hashtag);
-      break;
-    case "lihkg":
-      addNode(nodes, report.topic);
-      break;
+function collectAnchoredEvidence(
+  value: unknown,
+  urls: Set<string>,
+  nodes: Set<string>,
+  titles?: Set<string>,
+  eventTitle?: string,
+): void {
+  const record = asRecord(value);
+  if (!record) return;
+  const items = Array.isArray(record.items) ? record.items : [];
+  for (const itemValue of items) {
+    const item = asRecord(itemValue);
+    if (!item) continue;
+    if (eventTitle && !anchoredItemMatchesEvent(item, eventTitle)) continue;
+    const url = stringValue(item.url);
+    if (url) collectUrls(url, urls);
+    for (const key of ["channelName", "sourceName", "author"]) addNode(nodes, item[key]);
+    if (titles) {
+      const title = stringValue(item.title);
+      if (title) titles.add(title);
+    }
   }
 }
 
-function collectTitles(value: unknown, out: Set<string>, depth = 0): void {
-  if (depth > 3 || out.size >= 40) return;
-  const record = asRecord(value);
-  if (!record) return;
-  for (const key of ["title", "event_title", "topic", "subject", "message_text", "content"]) {
-    const valueForKey = stringValue(record[key]);
-    if (valueForKey) out.add(valueForKey);
-  }
-  for (const nested of Object.values(record)) collectTitles(nested, out, depth + 1);
-}
+function anchoredItemMatchesEvent(
+  item: Record<string, unknown>,
+  eventTitle: string,
+): boolean {
+  const itemText = normalizeForSearch([
+    stringValue(item.title),
+    stringValue(item.content),
+  ].join(" "));
+  if (!itemText.trim()) return false;
 
-function collectNodes(value: unknown, out: Set<string>, depth = 0): void {
-  if (depth > 4 || out.size >= 60) return;
-  const record = asRecord(value);
-  if (!record) return;
-  for (const key of NODE_KEYS) addNode(out, record[key]);
-  for (const nested of Object.values(record)) collectNodes(nested, out, depth + 1);
+  const eventText = normalizeForSearch(eventTitle);
+  const latinTerms = eventText.match(/[a-z0-9][a-z0-9_-]{4,}/g) ?? [];
+  const hanSegments = eventText.match(/[\p{Script=Han}]{4,}/gu) ?? [];
+  const concreteTerms = new Set<string>(latinTerms);
+  for (const segment of hanSegments) {
+    if (segment.length <= 8) concreteTerms.add(segment);
+    for (const size of [6, 4]) {
+      if (segment.length < size) continue;
+      for (let index = 0; index <= segment.length - size; index += 1) {
+        const term = segment.slice(index, index + size);
+        if (!COMMON_TOKENS.has(term)) concreteTerms.add(term);
+      }
+    }
+  }
+  const hits = [...concreteTerms].filter((term) => itemText.includes(term));
+  return hits.some((term) => term.length >= 6) || hits.length >= 2;
 }
 
 function collectUrls(value: unknown, out: Set<string>): void {
@@ -398,22 +403,37 @@ function canonicalUrl(value: string): string {
   try {
     const url = new URL(clean);
     url.hash = "";
+    const initialHost = url.hostname
+      .replace(/^www\./, "")
+      .replace(/^mobile\./, "")
+      .replace(/^m\./, "")
+      .replace(/^twitter\.com$/, "x.com")
+      .toLowerCase();
+    const nestedUrl = extractWrappedUrl(url, initialHost);
+    if (nestedUrl) return canonicalUrl(nestedUrl);
     for (const key of [...url.searchParams.keys()]) {
       if (
         key.startsWith("utm_") ||
-        ["fbclid", "gclid", "igshid", "spm", "ref", "feature"].includes(key)
+        ["fbclid", "gclid", "igshid", "spm", "ref", "feature", "s"].includes(key)
       ) {
         url.searchParams.delete(key);
       }
     }
-    const host = url.hostname
-      .replace(/^www\./, "")
-      .replace(/^mobile\./, "")
-      .replace(/^m\./, "")
-      .replace(/^twitter\.com$/, "x.com");
+    const host = initialHost;
+    if (isStaticOrWrapperUrl(url, host)) return "";
     if (host === "youtu.be") {
       const videoId = url.pathname.replace(/^\/+/, "").split("/")[0] ?? "";
       return videoId ? `https://youtube.com/watch?v=${videoId}` : "";
+    }
+    if (host === "youtube.com") {
+      const videoId = youtubeVideoId(url);
+      return videoId ? `https://youtube.com/watch?v=${videoId}` : "";
+    }
+    if (host === "lihkg.com") {
+      const pathParts = url.pathname.split("/").filter(Boolean);
+      if (pathParts[0] === "thread" && /^\d+$/.test(pathParts[1] ?? "")) {
+        return `https://lihkg.com/thread/${pathParts[1]}`;
+      }
     }
     url.hostname = host;
     const normalized = url.toString().replace(/\/$/, "");
@@ -421,6 +441,35 @@ function canonicalUrl(value: string): string {
   } catch {
     return "";
   }
+}
+
+function extractWrappedUrl(url: URL, host: string): string {
+  if (
+    (host === "r.lihkg.com" && url.pathname === "/link") ||
+    (host === "embed.lih.kg" && url.pathname === "/frame")
+  ) {
+    return url.searchParams.get("u") ?? "";
+  }
+  return "";
+}
+
+function isStaticOrWrapperUrl(url: URL, host: string): boolean {
+  const pathname = url.pathname.toLowerCase();
+  if (host === "r.lihkg.com" || host === "embed.lih.kg") return true;
+  if (host === "youtube.com" && (pathname === "/results" || pathname.startsWith("/@"))) {
+    return true;
+  }
+  if (host === "lihkg.com" && pathname.startsWith("/assets/")) return true;
+  if (pathname.includes("/thumbnail") || pathname.includes("/thumbnails/")) return true;
+  if (/\.(?:gif|png|jpe?g|webp|svg|ico)(?:$|[?#])/i.test(pathname)) return true;
+  return false;
+}
+
+function youtubeVideoId(url: URL): string {
+  if (url.pathname === "/watch") return url.searchParams.get("v") ?? "";
+  const pathParts = url.pathname.split("/").filter(Boolean);
+  if (["shorts", "embed", "live"].includes(pathParts[0] ?? "")) return pathParts[1] ?? "";
+  return "";
 }
 
 function addNode(out: Set<string>, value: unknown): void {
@@ -459,40 +508,6 @@ function addTitleToken(out: Set<string>, value: string): void {
   out.add(token);
 }
 
-function hasStrongCommonToken(tokens: readonly string[]): boolean {
-  return tokens.some((token) =>
-    /^[\p{Script=Han}]{3,}$/u.test(token) || /^[a-z0-9_-]{5,}$/i.test(token),
-  );
-}
-
-function hasPoliticalSecurityCoreOverlap(tokens: readonly string[]): boolean {
-  const joined = tokens.join(" ");
-  const keyTerms = [
-    "中国政治",
-    "国家安全",
-    "政权",
-    "颠覆",
-    "顛覆",
-    "不当言论",
-    "不當言論",
-    "反政府",
-    "反中",
-    "反華",
-    "反华",
-    "港独",
-    "台独",
-    "疆独",
-    "藏独",
-    "谣言",
-    "謠言",
-    "虚假",
-    "虚假信息",
-    "假消息",
-    "政治",
-  ];
-  return keyTerms.some((term) => joined.includes(term));
-}
-
 function normalizeForSearch(text: string): string {
   return text.toLowerCase().normalize("NFKC");
 }
@@ -510,12 +525,6 @@ function stringValue(value: unknown): string {
   return "";
 }
 
-function arrayOfStrings(value: unknown): readonly string[] {
-  return Array.isArray(value)
-    ? value.filter((item): item is string => typeof item === "string")
-    : [];
-}
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return value as Record<string, unknown>;
@@ -527,6 +536,46 @@ function intersection(
 ): readonly string[] {
   const rightSet = new Set(right);
   return [...new Set(left)].filter((item) => rightSet.has(item));
+}
+
+function difference(left: readonly string[], right: readonly string[]): readonly string[] {
+  const rightSet = new Set(right);
+  return [...new Set(left)].filter((item) => !rightSet.has(item));
+}
+
+function isDistinctiveTitleToken(token: string): boolean {
+  return /^[\p{Script=Han}]{4,}$/u.test(token) || /^[a-z0-9_-]{6,}$/i.test(token);
+}
+
+function isReliableEventUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    const pathParts = parsed.pathname.split("/").filter(Boolean);
+    const lastPart = pathParts[pathParts.length - 1] ?? "";
+    if (host === "x.com") return pathParts.includes("status") && /^\d+$/.test(lastPart);
+    if (host === "youtube.com") {
+      return parsed.pathname === "/watch" && Boolean(parsed.searchParams.get("v"));
+    }
+    if (host === "t.me") return pathParts.length >= 2 && /^\d+$/.test(lastPart);
+    if (host === "lihkg.com") {
+      return pathParts[0] === "thread" && /^\d+$/.test(pathParts[1] ?? "");
+    }
+    if (host === "instagram.com") {
+      return ["p", "reel", "reels", "tv"].includes(pathParts[0] ?? "") && pathParts.length >= 2;
+    }
+    if (host === "facebook.com") {
+      return /\/(?:posts|videos|permalink\.php|story\.php)/i.test(parsed.pathname);
+    }
+    if (host === "github.com") {
+      return pathParts.length >= 4 &&
+        ["issues", "pull", "discussions", "commit"].includes(pathParts[2] ?? "");
+    }
+    if (host === "ptt.cc") return pathParts[0] === "bbs" && pathParts.length >= 3;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 function overlapRatio(left: readonly string[], right: readonly string[]): number {

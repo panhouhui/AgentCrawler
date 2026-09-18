@@ -5,9 +5,17 @@ import type { ToolRegistry } from "../../tools/registry";
 import { PLATFORM_AGENT_IDS } from "../../pipelines/social/agents";
 import { runAutonomousSocialMonitor } from "../../pipelines/social/autonomous-monitor";
 import { runSocialPipeline } from "../../pipelines/social/pipeline";
-import { renderSocialFusionKanMessage } from "../../pipelines/social/renderers";
+import {
+  renderGlobalRadarKanMessage,
+  renderSocialFusionKanMessage,
+} from "../../pipelines/social/renderers";
 import { createRouteBackedSocialAgentRunner } from "../../pipelines/social/runner";
 import type { PlatformReport } from "../../pipelines/social/schemas";
+import {
+  buildGlobalRadarEvent,
+  createGlobalRadarEventId,
+  type GlobalRadarEvent,
+} from "../../pipelines/social/radar";
 import { SOCIAL_PLATFORMS } from "../../pipelines/social/types";
 import {
   createSocialMonitorRun,
@@ -16,8 +24,13 @@ import {
   getSocialMonitorRunDetail,
   requestStopSocialMonitorRun,
   stopOrphanedSocialMonitorRuns,
+  type SocialMonitorRunRecord,
 } from "../../store/social-monitor";
 import {
+  getGlobalRadarEventById,
+  getGlobalRadarEvents,
+  getGlobalRadarOverview,
+  getSocialRadarEventContext,
   saveSocialPlatformReport,
   upsertSocialFusedEvent,
 } from "../../store/social-events";
@@ -27,6 +40,8 @@ const log = createLogger("routes:social");
 
 const monitorControllers = new Map<string, AbortController>();
 const STALE_MONITOR_SECONDS = 300;
+const ORPHANED_MONITOR_ERROR = "服务重启后后台任务不存在，已自动停止";
+let recoveryPromise: Promise<void> | null = null;
 
 async function cleanupOrphanedMonitorRuns(
   reason: string,
@@ -38,6 +53,138 @@ async function cleanupOrphanedMonitorRuns(
   if (stopped > 0) {
     log.warn("Stopped orphaned social monitor run(s)", { reason, stopped });
   }
+}
+
+function isStoredContinuousMonitor(run: SocialMonitorRunRecord | null): run is SocialMonitorRunRecord {
+  return Boolean(
+    run &&
+      run.continuous &&
+      !run.cancelRequested &&
+      (run.mode === "probe" || run.mode === "crawl") &&
+      run.selectedPlatforms.length > 0,
+  );
+}
+
+function isAutoStoppedContinuousMonitor(
+  run: SocialMonitorRunRecord | null,
+): run is SocialMonitorRunRecord {
+  return Boolean(
+    run &&
+      run.status === "stopped" &&
+      run.continuous &&
+      run.error === ORPHANED_MONITOR_ERROR &&
+      (run.mode === "probe" || run.mode === "crawl") &&
+      run.selectedPlatforms.length > 0,
+  );
+}
+
+function launchMonitorBackgroundTask(
+  run: SocialMonitorRunRecord,
+  deps: {
+    readonly agentRegistry: AgentRegistry;
+    readonly toolRegistry?: ToolRegistry;
+  },
+  reason: string,
+): void {
+  if (!deps.toolRegistry) {
+    log.warn("Cannot recover social monitor: tool registry missing", {
+      runId: run.id,
+      reason,
+    });
+    return;
+  }
+  if (monitorControllers.has(run.id)) return;
+
+  const controller = new AbortController();
+  monitorControllers.set(run.id, controller);
+  log.warn("Recovered continuous social monitor background task", {
+    runId: run.id,
+    reason,
+    mode: run.mode,
+    platforms: run.selectedPlatforms,
+    cycleIntervalSeconds: run.cycleIntervalSeconds,
+  });
+
+  runAutonomousSocialMonitor({
+    runId: run.id,
+    agentRegistry: deps.agentRegistry,
+    toolRegistry: deps.toolRegistry,
+    platforms: run.selectedPlatforms,
+    mode: run.mode === "crawl" ? "crawl" : "probe",
+    limit: run.limitPerPlatform,
+    maxCandidates: run.maxCandidates,
+    continuous: run.continuous,
+    cycleIntervalSeconds: run.cycleIntervalSeconds,
+    retentionDays: run.retentionDays,
+    analysisTimeoutMs: 180_000,
+    abortSignal: controller.signal,
+  })
+    .catch((err) => {
+      log.error("Recovered autonomous social monitor background task failed", {
+        runId: run.id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    })
+    .finally(() => {
+      monitorControllers.delete(run.id);
+    });
+}
+
+async function createReplacementContinuousMonitor(
+  previous: SocialMonitorRunRecord,
+  deps: {
+    readonly agentRegistry: AgentRegistry;
+    readonly toolRegistry?: ToolRegistry;
+  },
+  reason: string,
+): Promise<SocialMonitorRunRecord | null> {
+  if (!deps.toolRegistry) return null;
+  const replacement = await createSocialMonitorRun({
+    id: crypto.randomUUID(),
+    mode: previous.mode === "crawl" ? "crawl" : "probe",
+    selectedPlatforms: previous.selectedPlatforms,
+    maxCandidates: previous.maxCandidates,
+    limitPerPlatform: previous.limitPerPlatform,
+    continuous: true,
+    cycleIntervalSeconds: previous.cycleIntervalSeconds,
+    retentionDays: previous.retentionDays,
+  });
+  launchMonitorBackgroundTask(replacement, deps, reason);
+  return replacement;
+}
+
+async function ensureContinuousMonitorRecovery(
+  deps: {
+    readonly agentRegistry: AgentRegistry;
+    readonly toolRegistry?: ToolRegistry;
+  },
+  reason: string,
+): Promise<void> {
+  if (recoveryPromise) return recoveryPromise;
+  recoveryPromise = (async () => {
+    if (!deps.toolRegistry) {
+      await cleanupOrphanedMonitorRuns(reason, STALE_MONITOR_SECONDS);
+      return;
+    }
+
+    const active = await getActiveSocialMonitorRun();
+    if (monitorControllers.has(active?.id ?? "")) return;
+
+    if (isStoredContinuousMonitor(active)) {
+      await cleanupOrphanedMonitorRuns(`${reason}:replace_orphaned_running`);
+      await createReplacementContinuousMonitor(active, deps, `${reason}:replace_orphaned_running`);
+      return;
+    }
+
+    await cleanupOrphanedMonitorRuns(reason, STALE_MONITOR_SECONDS);
+    const latest = await getLatestSocialMonitorRun();
+    if (isAutoStoppedContinuousMonitor(latest)) {
+      await createReplacementContinuousMonitor(latest, deps, `${reason}:restart_auto_stopped`);
+    }
+  })().finally(() => {
+    recoveryPromise = null;
+  });
+  return recoveryPromise;
 }
 
 const socialSignalSchema = z.object({
@@ -74,8 +221,26 @@ export function createSocialRoutes(deps: {
 }): Hono {
   const app = new Hono();
 
+  app.get("/social/radar/overview", async (c) => {
+    return c.json({ success: true, data: await getGlobalRadarOverview() });
+  });
+
+  app.get("/social/radar/events", async (c) => {
+    const requested = Number(c.req.query("limit") ?? 30);
+    const limit = Number.isFinite(requested) ? requested : 30;
+    return c.json({ success: true, data: await getGlobalRadarEvents(limit) });
+  });
+
+  app.get("/social/radar/events/:eventId", async (c) => {
+    const event = await getGlobalRadarEventById(c.req.param("eventId"));
+    if (!event) {
+      return c.json({ success: false, error: "未找到全域雷达事件" }, 404);
+    }
+    return c.json({ success: true, data: event });
+  });
+
   app.get("/social/monitor/latest", async (c) => {
-    await cleanupOrphanedMonitorRuns("latest_status_read", STALE_MONITOR_SECONDS);
+    await ensureContinuousMonitorRecovery(deps, "latest_status_read");
     const latest = await getLatestSocialMonitorRun();
     if (!latest) return c.json({ success: true, data: null });
     return c.json({
@@ -85,7 +250,7 @@ export function createSocialRoutes(deps: {
   });
 
   app.get("/social/monitor/latest/kan-preview", async (c) => {
-    await cleanupOrphanedMonitorRuns("kan_preview_read", STALE_MONITOR_SECONDS);
+    await ensureContinuousMonitorRecovery(deps, "kan_preview_read");
     const latest = await getLatestSocialMonitorRun();
     if (!latest) return c.json({ success: true, data: null });
 
@@ -94,11 +259,17 @@ export function createSocialRoutes(deps: {
     if (!detail || !queueItem) return c.json({ success: true, data: null });
 
     const platformReports = platformReportsFromPayload(queueItem.payload);
+    const radar = radarFromPayload(queueItem.payload);
     const payloadMessage =
       typeof queueItem.payload.message === "string" ? queueItem.payload.message : "";
     const message =
       payloadMessage ||
-      (detail.fusion
+      (radar
+        ? renderGlobalRadarKanMessage({
+            radar,
+            decisionReason: queueItem.reason,
+          })
+        : detail.fusion
         ? renderSocialFusionKanMessage({
             event: detail.fusion,
             platformReports,
@@ -116,6 +287,7 @@ export function createSocialRoutes(deps: {
         dryRun: true,
         message,
         event: detail.fusion,
+        radar,
         platformReports,
         platformEvidence: Array.isArray(queueItem.payload.platformEvidence)
           ? queueItem.payload.platformEvidence
@@ -125,7 +297,7 @@ export function createSocialRoutes(deps: {
   });
 
   app.get("/social/monitor/runs/:runId", async (c) => {
-    await cleanupOrphanedMonitorRuns("run_detail_read", STALE_MONITOR_SECONDS);
+    await ensureContinuousMonitorRecovery(deps, "run_detail_read");
     const detail = await getSocialMonitorRunDetail(c.req.param("runId"));
     if (!detail) {
       return c.json({ success: false, error: "未找到该监控运行" }, 404);
@@ -153,7 +325,7 @@ export function createSocialRoutes(deps: {
       );
     }
 
-    await cleanupOrphanedMonitorRuns("start_before_active_check");
+    await ensureContinuousMonitorRecovery(deps, "start_before_active_check");
     const active = await getActiveSocialMonitorRun();
     if (active) {
       return c.json(
@@ -265,10 +437,21 @@ export function createSocialRoutes(deps: {
           });
         }
         if (result.fusedEvent && result.renderedFusedEvent) {
+          const existingRadar = await getSocialRadarEventContext(result.fusedEvent.event_key);
+          const radar = buildGlobalRadarEvent({
+            event: result.fusedEvent,
+            platformReports: result.platformReports,
+            eventId: existingRadar?.radarEventId ?? createGlobalRadarEventId(),
+            firstSeenAt: existingRadar?.firstSeenAt ?? Math.floor(Date.now() / 1000),
+            updatedAt: Math.floor(Date.now() / 1000),
+            monitoredPlatformCount: SOCIAL_PLATFORMS.length,
+            history: existingRadar?.snapshots,
+          });
           await upsertSocialFusedEvent({
             id: crypto.randomUUID(),
             event: result.fusedEvent,
-            renderedText: result.renderedFusedEvent,
+            renderedText: renderGlobalRadarKanMessage({ radar }),
+            radar,
           });
         }
       }
@@ -290,6 +473,15 @@ export function createSocialRoutes(deps: {
 function platformReportsFromPayload(payload: Record<string, unknown>): readonly PlatformReport[] {
   const value = payload.platformReports;
   return Array.isArray(value) ? (value as PlatformReport[]) : [];
+}
+
+function radarFromPayload(payload: Record<string, unknown>): GlobalRadarEvent | null {
+  const value = payload.radar;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const radar = value as Partial<GlobalRadarEvent>;
+  return radar.schema === "global_radar_v1" && typeof radar.eventId === "string"
+    ? (radar as GlobalRadarEvent)
+    : null;
 }
 
 async function runSocialPipelineBounded(input: {

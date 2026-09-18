@@ -124,6 +124,49 @@ interface FusedEvent {
   readonly evidence?: readonly string[];
 }
 
+interface GlobalRadarPlatformStat {
+  readonly platform: Platform;
+  readonly verifiedCount: number;
+  readonly deltaSincePrevious: number | null;
+  readonly trend: string;
+}
+
+interface GlobalRadarEvent {
+  readonly schema: "global_radar_v1";
+  readonly eventId: string;
+  readonly title: string;
+  readonly shortSummary: string;
+  readonly tier: "major" | "key" | "watch" | "general";
+  readonly status: "new" | "rapid" | "spreading" | "stable" | "cooling";
+  readonly firstSeenAt: number;
+  readonly updatedAt: number;
+  readonly foundPlatforms: readonly Platform[];
+  readonly firstPlatform: Platform | null;
+  readonly dominantPlatform: Platform | null;
+  readonly monitoredPlatformCount: number;
+  readonly platformStats: readonly GlobalRadarPlatformStat[];
+  readonly aiAssessment: {
+    readonly attentionIndex: number;
+    readonly conclusion: string;
+  };
+  readonly alerts: readonly string[];
+  readonly suggestedActions: readonly string[];
+}
+
+interface GlobalRadarOverview {
+  readonly updatedAt: number;
+  readonly monitoredPlatformCount: number;
+  readonly dailyVerifiedReportCount: number;
+  readonly activeEventCount: number;
+  readonly majorEventCount: number;
+  readonly keyEventCount: number;
+  readonly rapidEventCount: number;
+  readonly newEventCount: number;
+  readonly topEvents: readonly GlobalRadarEvent[];
+  readonly aiSituationSummary: string;
+  readonly dataNote: string;
+}
+
 interface KanQueueItem {
   readonly id: string;
   readonly fusedEventKey: string;
@@ -857,6 +900,91 @@ function StatusOverview({ run }: { readonly run: MonitorRun | null }) {
   );
 }
 
+function radarTierLabel(tier: GlobalRadarEvent["tier"]): string {
+  const labels: Record<GlobalRadarEvent["tier"], string> = {
+    major: "重大",
+    key: "重点",
+    watch: "关注",
+    general: "一般",
+  };
+  return labels[tier];
+}
+
+function radarStatusLabel(status: GlobalRadarEvent["status"]): string {
+  const labels: Record<GlobalRadarEvent["status"], string> = {
+    new: "新出现",
+    rapid: "快速升温",
+    spreading: "持续扩散",
+    stable: "平稳",
+    cooling: "降温",
+  };
+  return labels[status];
+}
+
+function GlobalRadarOverviewPanel({
+  overview,
+}: {
+  readonly overview: GlobalRadarOverview | null;
+}) {
+  return (
+    <Panel
+      title="全域雷达"
+      subtitle="以跨平台可核验证据为基础，识别重点事件、传播状态与优先级。"
+      icon={<RadioTower size={18} className="text-accent" />}
+    >
+      {overview ? (
+        <>
+          <div className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-sm:grid-cols-2">
+            <Stat label="监测平台" value={compactNumber(overview.monitoredPlatformCount)} />
+            <Stat label="当日分析报告" value={compactNumber(overview.dailyVerifiedReportCount)} />
+            <Stat label="活动事件" value={compactNumber(overview.activeEventCount)} />
+            <Stat label="重大 / 重点" value={`${overview.majorEventCount} / ${overview.keyEventCount}`} tone={overview.majorEventCount > 0 ? "danger" : "warning"} />
+            <Stat label="快速升温" value={compactNumber(overview.rapidEventCount)} tone={overview.rapidEventCount > 0 ? "warning" : "normal"} />
+            <Stat label="新出现" value={compactNumber(overview.newEventCount)} />
+          </div>
+          <div className="mt-4 rounded-lg border border-border bg-bg-2 px-4 py-3 text-sm leading-6 text-muted">
+            {overview.aiSituationSummary}
+          </div>
+          <div className="mt-4 space-y-3">
+            {overview.topEvents.map((event) => (
+              <article key={event.eventId} className="rounded-lg border border-border bg-bg-2 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-mono text-faint">{event.eventId}</div>
+                    <div className="mt-1 font-semibold text-foreground">{event.title}</div>
+                    <div className="mt-1 text-sm leading-6 text-muted">{event.shortSummary}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Pill className={event.tier === "major" ? "bg-danger-subtle text-danger" : event.tier === "key" ? "bg-warning-subtle text-warning" : "bg-bg-3 text-muted"}>
+                      {radarTierLabel(event.tier)}
+                    </Pill>
+                    <Pill className={event.status === "rapid" ? "bg-warning-subtle text-warning" : "bg-bg-3 text-muted"}>
+                      {radarStatusLabel(event.status)}
+                    </Pill>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-sm:grid-cols-1">
+                  <Stat label="覆盖平台" value={`${event.foundPlatforms.length} / ${event.monitoredPlatformCount}`} />
+                  <Stat label="首发平台" value={event.firstPlatform ? platformConfig(event.firstPlatform).label : "暂无"} />
+                  <Stat label="主导平台" value={event.dominantPlatform ? platformConfig(event.dominantPlatform).label : "暂无"} />
+                  <Stat label="关注指数" value={`${event.aiAssessment.attentionIndex} / 100`} tone={event.aiAssessment.attentionIndex >= 70 ? "danger" : event.aiAssessment.attentionIndex >= 50 ? "warning" : "normal"} />
+                </div>
+                <div className="mt-3 text-sm leading-6 text-muted">{event.aiAssessment.conclusion}</div>
+                {event.alerts.length > 0 && (
+                  <div className="mt-3 text-sm text-warning">预警：{event.alerts.join("；")}</div>
+                )}
+              </article>
+            ))}
+          </div>
+          <div className="mt-4 text-xs leading-5 text-faint">{overview.dataNote}</div>
+        </>
+      ) : (
+        <EmptyHint text="正在读取全域雷达事件库；尚无事件时会在后续跨平台融合后自动出现。" />
+      )}
+    </Panel>
+  );
+}
+
 function PlatformAgentStatePanel({
   run,
   crawlerConfig,
@@ -1380,6 +1508,7 @@ function LogsPanel({ run }: { readonly run: MonitorRun | null }) {
 
 export default function SocialFusion() {
   const [run, setRun] = useState<MonitorRun | null>(null);
+  const [radarOverview, setRadarOverview] = useState<GlobalRadarOverview | null>(null);
   const [crawlerConfig, setCrawlerConfig] = useState<CrawlerConfigOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
@@ -1418,14 +1547,27 @@ export default function SocialFusion() {
     }
   }
 
+  async function loadRadarOverview(silent = false) {
+    try {
+      const res = await apiFetch<ApiResponse<GlobalRadarOverview>>("/api/social/radar/overview");
+      if (res.success && res.data) setRadarOverview(res.data);
+    } catch (err) {
+      if (!silent) setError(err instanceof Error ? err.message : "读取全域雷达概览失败。");
+    }
+  }
+
   useEffect(() => {
     loadLatest();
     loadCrawlerConfig(true);
+    loadRadarOverview(true);
   }, []);
 
   useEffect(() => {
     if (!active) return;
-    const timer = window.setInterval(() => loadLatest(true), 3000);
+    const timer = window.setInterval(() => {
+      loadLatest(true);
+      loadRadarOverview(true);
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [active]);
 
@@ -1435,6 +1577,7 @@ export default function SocialFusion() {
       if (document.visibilityState === "visible") {
         loadLatest(true);
         loadCrawlerConfig(true);
+        loadRadarOverview(true);
       }
     };
     window.addEventListener("focus", onFocus);
@@ -1504,9 +1647,12 @@ export default function SocialFusion() {
   function renderActiveView() {
     if (activeView === "overview") {
       return (
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)] gap-5 max-xl:grid-cols-1">
-          <StatusOverview run={run} />
-          <KanQueuePanel run={run} />
+        <div className="space-y-5">
+          <GlobalRadarOverviewPanel overview={radarOverview} />
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)] gap-5 max-xl:grid-cols-1">
+            <StatusOverview run={run} />
+            <KanQueuePanel run={run} />
+          </div>
         </div>
       );
     }
@@ -1530,8 +1676,8 @@ export default function SocialFusion() {
   return (
     <div className="max-w-[1500px] space-y-5">
       <PageHeader
-        title="社交融合"
-        subtitle="平台智能体自主巡逻，先过中国相关性与风险门槛，再跨平台复核，最后由 Social Fusion Agent 生成传播路径和 Kan 推送队列。"
+        title="全域雷达"
+        subtitle="平台智能体自主巡逻、跨平台复核与传播链路分析；全域雷达将可核验证据归并为重点事件并提供分级研判。"
         actions={
           <div className="flex items-center gap-2">
             {active ? (

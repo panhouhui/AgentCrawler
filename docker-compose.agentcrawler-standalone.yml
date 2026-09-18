@@ -1,0 +1,58 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.agentcrawler-standalone
+    image: agentcrawler-standalone:local
+    container_name: agentcrawler-standalone
+    restart: unless-stopped
+    env_file:
+      - ./env/model_env/minimax_env
+    environment:
+      PGDATA: /var/lib/agentcrawler-postgres/data
+      DATABASE_URL: postgres://opencrow:opencrow@127.0.0.1:5432/opencrow
+      OPENCROW_READONLY_DATABASE_URL: postgres://opencrow:opencrow@127.0.0.1:5432/opencrow
+      QDRANT_URL: http://127.0.0.1:6333
+      OPENCROW_WEB_HOST: 0.0.0.0
+      OPENCROW_WEB_PORT: "48080"
+      OPENCROW_INTERNAL_API_HOST: 127.0.0.1
+      OPENCROW_INTERNAL_API_PORT: "48081"
+      OPENCROW_WEB_TOKEN: "${OPENCROW_WEB_TOKEN}"
+      OPENCROW_INTERNAL_TOKEN: "${OPENCROW_INTERNAL_TOKEN}"
+      AGENT_HUB_ROOT: /opt/agenthub
+      CRAWLER_ROOT: /opt/agenthub/Crawler
+      MODEL_ENV_ROOT: /opt/agenthub/env/model_env
+      CRAWLER_ENV_ROOT: /opt/agenthub/env/Crawler_env
+      AGENTHUB_TEST_OUTPUT_ROOT: /opt/agenthub/test
+      AGENTHUB_CRAWLER_OUTPUT_DIR: /opt/agenthub/test/crawler-tools
+      AGENTHUB_PYTHON: /opt/agenthub-py/bin/python
+      AGENTHUB_CRAWLER_USE_PROXY: "1"
+      AGENTHUB_CRAWLER_PROXY_URL: http://172.23.0.1:7898
+      AGENTHUB_CRAWLER_PROXY_PORT: "7898"
+      OPENCROW_SIGE_ENABLED: "false"
+      OPENCODE_API_KEY: ""
+      OPENROUTER_API_KEY: ""
+      ALIBABA_API_KEY: ""
+      VOYAGE_API_KEY: ""
+    volumes:
+      # Keep AgentHub source persistent across container recreation without
+      # rebuilding the Python/browser dependency image.
+      - ./AgentHub/src:/app/src:ro
+      - ./AgentHub/scripts:/app/scripts:ro
+      - agentcrawler_pgdata:/var/lib/agentcrawler-postgres
+      - ./Crawler:/opt/agenthub/Crawler:ro
+      - ./env:/opt/agenthub/env:ro
+      - ./test:/opt/agenthub/test
+    ports:
+      - "0.0.0.0:48086:48080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "node -e \"fetch('http://127.0.0.1:48081/internal/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  agentcrawler_pgdata:
