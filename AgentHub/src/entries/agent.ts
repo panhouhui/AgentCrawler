@@ -20,6 +20,9 @@ import { createTelegramChannel } from "../channels/telegram/client";
 import { createAgentBotHandler } from "../channels/telegram/agent-handler";
 import { createWhatsAppChannel } from "../channels/whatsapp/client";
 import { createWhatsAppAgentHandler } from "../channels/whatsapp/agent-handler";
+import { createKanChannel } from "../channels/kan/client";
+import { createKanAgentHandler } from "../channels/kan/agent-handler";
+import { findKanPushRoute } from "../integrations/kan/config";
 import { createRouter } from "../router/router";
 import { createChannelRegistry } from "../channels/registry";
 import { registerDefaultPlugins } from "../channels/default-plugins";
@@ -179,6 +182,29 @@ async function main(): Promise<void> {
       });
     } catch (err) {
       log.error("WhatsApp failed to start (non-fatal)", { error: err });
+    }
+  }
+
+  // --- KAN private conversations (default/global radar agent only) ---
+  // Independent from the existing outbound public-channel dispatcher.
+  if (isDefault) {
+    const kanRoute = findKanPushRoute(undefined, "social-fusion") ?? findKanPushRoute();
+    const kanEnabled = process.env.KAN_DM_ENABLED !== "0" && Boolean(process.env.KAN_DM_BOT_TOKEN || kanRoute?.token);
+    if (kanEnabled) {
+      try {
+        const allowedUserIds = (process.env.KAN_DM_ALLOWED_USER_IDS ?? "")
+          .split(",").map((value) => value.trim()).filter(Boolean);
+        const allowAllKanUsers = process.env.KAN_DM_ALLOW_ALL !== "0";
+        const kanChannel = createKanChannel({ allowedUserIds, allowAllUsers: allowAllKanUsers });
+        createKanAgentHandler({ agent: resolvedAgent, channel: kanChannel, allowedUserIds, allowAllUsers: allowAllKanUsers, buildOptions: ctx.buildOptionsForAgent, agentRegistry: ctx.agentRegistry });
+        await kanChannel.connect();
+        log.info("KAN private channel connected", { agentId, accessMode: allowAllKanUsers ? "all-users" : "allow-list", allowedUserCount: allowedUserIds.length });
+        supervisor.onShutdown(async () => { await kanChannel.disconnect(); });
+      } catch (error) {
+        log.error("KAN private channel failed to start (non-fatal)", { error });
+      }
+    } else {
+      log.info("KAN private channel disabled or not configured");
     }
   }
 

@@ -97,7 +97,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
   app.get("/status", async (c) => {
     const sessions = await getAllSessions();
     const { getSecret } = await import("../../config/secrets");
-    const authEnabled = Boolean(await getSecret("OPENCROW_WEB_TOKEN"));
+    const authEnabled = process.env.OPENCROW_WEB_AUTH_DISABLED !== "true" && Boolean(await getSecret("OPENCROW_WEB_TOKEN"));
 
     let channelStatus: Record<string, { status: string; type: string }> = {};
     let cronStatus: {

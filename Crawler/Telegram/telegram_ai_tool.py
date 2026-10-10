@@ -449,6 +449,7 @@ def crawl_dialogs(
     days: int = 1,
     max_results: int = 30,
     query: str = "",
+    per_dialog: bool = False,
 ) -> dict[str, Any]:
     targets = {str(x).strip().lower().lstrip("@") for x in dialogs if str(x).strip()}
     if not targets:
@@ -460,6 +461,7 @@ def crawl_dialogs(
     per_dialog_limit = min(max(max_results, days * 500), 5000)
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
+    scanned_dialog_ids: list[str] = []
 
     with make_client(config) as client:
         all_dialogs = list(client.iter_dialogs())
@@ -469,6 +471,8 @@ def crawl_dialogs(
                 continue
             if not dialog_matches(entity, targets):
                 continue
+            scanned_dialog_ids.append(str(entity.id))
+            dialog_start = len(rows)
             for msg in client.iter_messages(entity, limit=per_dialog_limit):
                 msg_time = getattr(msg, "date", None)
                 if msg_time and msg_time.tzinfo is None:
@@ -485,9 +489,10 @@ def crawl_dialogs(
                     continue
                 seen.add(dedup)
                 rows.append(row)
-                if len(rows) >= max_results:
+                collected = len(rows) - dialog_start if per_dialog else len(rows)
+                if collected >= max_results:
                     break
-            if len(rows) >= max_results:
+            if not per_dialog and len(rows) >= max_results:
                 break
 
     groups: dict[str, list[dict[str, Any]]] = {}
@@ -514,6 +519,9 @@ def crawl_dialogs(
         "action": "crawl_dialogs",
         "days": days,
         "max_results": max_results,
+        "max_results_scope": "per_dialog" if per_dialog else "total",
+        "scanned_dialog_ids": scanned_dialog_ids,
+        "scanned_dialog_count": len(scanned_dialog_ids),
         "scan_limit_per_dialog": per_dialog_limit,
         "requested_dialogs": sorted(targets),
         "query": query,
@@ -843,6 +851,7 @@ def run_payload(payload: dict[str, Any], *, env_path: Path) -> dict[str, Any]:
             days=int(payload.get("days") or payload.get("search_days") or 1),
             max_results=int(payload.get("max_results") or 30),
             query=str(payload.get("query") or payload.get("event_query") or ""),
+            per_dialog=payload.get("per_dialog") is True,
         )
     if action in ("mattermost_test_channels", "test_mattermost"):
         config = read_mattermost_config(env_path)
@@ -907,6 +916,7 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=25, help="会话当天新增消息达到 N 条后才推送。")
     parser.add_argument("--days", type=int, default=1)
     parser.add_argument("--max-results", type=int, default=30)
+    parser.add_argument("--per-dialog", action="store_true", help="Apply max-results to each dialog instead of the entire crawl.")
     parser.add_argument("--limit", type=int, default=500)
     parser.add_argument("--env", default=str(DEFAULT_ENV_PATH), help="环境配置文件路径。")
     args = parser.parse_args()
@@ -930,6 +940,7 @@ def main() -> int:
                 "batch_size": args.batch_size,
                 "days": args.days,
                 "max_results": args.max_results,
+                "per_dialog": args.per_dialog,
                 "limit": args.limit,
             }
         result = run_payload(payload, env_path=Path(args.env))

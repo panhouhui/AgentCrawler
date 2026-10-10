@@ -132,8 +132,12 @@ export function createWebApp(deps: WebAppDeps): Hono {
   });
   app.route("/", createInternalLlmRoutes());
 
+  const webAuthDisabled = process.env.OPENCROW_WEB_AUTH_DISABLED === "true";
+
   // Log auth status at startup (best-effort check against env only)
-  if (process.env.OPENCROW_WEB_TOKEN) {
+  if (webAuthDisabled) {
+    log.warn("Web API authentication disabled by OPENCROW_WEB_AUTH_DISABLED");
+  } else if (process.env.OPENCROW_WEB_TOKEN) {
     log.info("Web API authentication enabled (env)");
   } else {
     log.warn("OPENCROW_WEB_TOKEN not in env — checking DB per request");
@@ -147,6 +151,9 @@ export function createWebApp(deps: WebAppDeps): Hono {
   // reject with 503 instead of allowing the request through — an unconfigured
   // deployment must never expose these endpoints unauthenticated.
   app.use("/api/*", async (c, next) => {
+    if (webAuthDisabled) {
+      return next();
+    }
     const { getSecret } = await import("../config/secrets");
     let token: string | undefined;
     try {

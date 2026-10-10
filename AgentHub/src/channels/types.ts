@@ -1,4 +1,4 @@
-export type ChannelName = "telegram" | "web" | "whatsapp";
+export type ChannelName = "telegram" | "web" | "whatsapp" | "kan";
 
 export interface InlineButton {
   readonly label: string;
@@ -48,7 +48,7 @@ export interface Channel {
   readonly name: ChannelName;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
-  sendMessage(chatId: string, content: MessageContent): Promise<number | void>;
+  sendMessage(chatId: string, content: MessageContent): Promise<number | string | void>;
   editMessage?(chatId: string, messageId: number, text: string): Promise<void>;
   deleteMessage?(chatId: string, messageId: number): Promise<void>;
   sendTyping?(chatId: string): Promise<void>;

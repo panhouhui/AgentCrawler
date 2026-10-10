@@ -77,6 +77,7 @@ const CRAWLER_PROXY_URL =
   process.env.AGENTHUB_CRAWLER_PROXY_URL ?? `http://127.0.0.1:${CRAWLER_PROXY_PORT}`;
 const MAX_OUTPUT_CHARS = 12_000;
 const MAX_SAMPLE_RECORDS = 3;
+const MAX_TELEGRAM_SAMPLE_RECORDS = 8;
 
 function parseEnvText(text: string): Record<string, string> {
   const values: Record<string, string> = {};
@@ -485,6 +486,45 @@ function stdoutRecords(platform: CrawlerPlatform, stdout: string): unknown[] {
   return [];
 }
 
+function boundedSampleRecords(
+  platform: CrawlerPlatform,
+  records: readonly unknown[],
+): readonly unknown[] {
+  if (platform !== "telegram") return records.slice(0, MAX_SAMPLE_RECORDS);
+
+  const selected: unknown[] = [];
+  const seenDialogs = new Set<string>();
+  for (const record of records) {
+    const value = record && typeof record === "object"
+      ? record as Record<string, unknown>
+      : null;
+    const dialogKey = String(
+      value?.dialog_id ?? value?.dialog_username ?? value?.dialog_title ?? selected.length,
+    );
+    if (seenDialogs.has(dialogKey)) continue;
+    seenDialogs.add(dialogKey);
+    selected.push(record);
+    if (selected.length >= MAX_TELEGRAM_SAMPLE_RECORDS) break;
+  }
+  return selected;
+}
+
+function summarizeCrawlerStdout(platform: CrawlerPlatform, stdout: string): string {
+  if (platform !== "telegram") return redactLocalPaths(clampText(stdout));
+  const records = stdoutRecords(platform, stdout);
+  const dialogs = new Set(
+    records
+      .map((record) => {
+        const value = record && typeof record === "object"
+          ? record as Record<string, unknown>
+          : null;
+        return String(value?.dialog_id ?? value?.dialog_username ?? value?.dialog_title ?? "");
+      })
+      .filter(Boolean),
+  );
+  return JSON.stringify({ platform, recordCount: records.length, dialogCount: dialogs.size });
+}
+
 function configuredStatus(platform: CrawlerPlatform): string {
   return getCrawlerPlatformConfig(platform)?.status ?? "missing-env";
 }
@@ -563,7 +603,10 @@ function dataQuality(input: {
               : status === "smoke_only"
                 ? "当前为 smoke 模式，只验证程序可启动，不代表真实爬取。"
                 : "爬虫执行失败。",
-    sampleRecords: records.slice(0, MAX_SAMPLE_RECORDS).map((item) => sanitizeSample(item)),
+    // Telegram scans every configured dialog, then passes a diverse bounded
+    // sample to the analysis pipeline so one busy dialog cannot dominate it.
+    sampleRecords: boundedSampleRecords(input.platform, records)
+      .map((item) => sanitizeSample(item)),
     artifacts: (input.artifacts ?? []).map((artifact) => ({
       label: artifact.label,
       kind: artifact.kind,
@@ -659,7 +702,7 @@ async function runCommand(
       crawler: `<crawler:${spec.platform}>`,
       argv: safeArgv(argv),
     },
-    stdout: redactLocalPaths(clampText(stdout)),
+    stdout: summarizeCrawlerStdout(spec.platform, stdout),
     stderr: redactLocalPaths(clampText(stderr)),
     dataQuality: dataQuality({
       platform: spec.platform,
@@ -1069,6 +1112,7 @@ const SPECS: readonly CrawlerSpec[] = [
           action: "crawl_dialogs",
           days: 1,
           max_results: input.limit,
+          per_dialog: true,
         }),
       };
     },

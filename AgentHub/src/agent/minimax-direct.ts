@@ -70,7 +70,11 @@ function isRetryable(err: unknown): boolean {
     msg.includes("502") ||
     msg.includes("503") ||
     msg.includes("econnrefused") ||
-    msg.includes("etimedout")
+    msg.includes("etimedout") ||
+    msg.includes("socket connection was closed") ||
+    msg.includes("connection reset") ||
+    msg.includes("fetch failed") ||
+    msg.includes("network error")
   );
 }
 

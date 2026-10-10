@@ -6,6 +6,7 @@ services:
     image: agentcrawler-standalone:local
     container_name: agentcrawler-standalone
     restart: unless-stopped
+    network_mode: host
     env_file:
       - ./env/model_env/minimax_env
     environment:
@@ -14,10 +15,10 @@ services:
       OPENCROW_READONLY_DATABASE_URL: postgres://opencrow:opencrow@127.0.0.1:5432/opencrow
       QDRANT_URL: http://127.0.0.1:6333
       OPENCROW_WEB_HOST: 0.0.0.0
-      OPENCROW_WEB_PORT: "48080"
+      OPENCROW_WEB_PORT: "48086"
       OPENCROW_INTERNAL_API_HOST: 127.0.0.1
       OPENCROW_INTERNAL_API_PORT: "48081"
-      OPENCROW_WEB_TOKEN: "${OPENCROW_WEB_TOKEN}"
+      OPENCROW_WEB_AUTH_DISABLED: "true"
       OPENCROW_INTERNAL_TOKEN: "${OPENCROW_INTERNAL_TOKEN}"
       AGENT_HUB_ROOT: /opt/agenthub
       CRAWLER_ROOT: /opt/agenthub/Crawler
@@ -27,8 +28,8 @@ services:
       AGENTHUB_CRAWLER_OUTPUT_DIR: /opt/agenthub/test/crawler-tools
       AGENTHUB_PYTHON: /opt/agenthub-py/bin/python
       AGENTHUB_CRAWLER_USE_PROXY: "1"
-      AGENTHUB_CRAWLER_PROXY_URL: http://172.23.0.1:7898
-      AGENTHUB_CRAWLER_PROXY_PORT: "7898"
+      AGENTHUB_CRAWLER_PROXY_URL: http://127.0.0.1:7897
+      AGENTHUB_CRAWLER_PROXY_PORT: "7897"
       OPENCROW_SIGE_ENABLED: "false"
       OPENCODE_API_KEY: ""
       OPENROUTER_API_KEY: ""

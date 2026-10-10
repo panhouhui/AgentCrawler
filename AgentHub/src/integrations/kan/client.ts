@@ -1,4 +1,5 @@
 import { findKanPushRoute } from "./config";
+import { recordKanDelivery } from "../../store/kan-messages";
 import type {
   KanPushDelivery,
   KanPushDispatchRequest,
@@ -109,7 +110,9 @@ export async function dispatchKanMessage(
       });
       continue;
     }
-    deliveries.push(await postKanMessage(route, channelId, message));
+    const delivery = await postKanMessage(route, channelId, message);
+    deliveries.push(delivery);
+    await recordKanDelivery({ eventKey: input.dedupeKey, destinationType: "channel", destinationId: channelId, messageId: delivery.postId || undefined, message, status: delivery.error ? "failed" : "sent", error: delivery.error }).catch(() => undefined);
   }
 
   return {

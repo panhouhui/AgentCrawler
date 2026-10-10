@@ -1,5 +1,6 @@
 import type { OpenCrowConfig } from "../config/schema";
 import type { ResolvedAgent } from "../agents/types";
+import { findKanPushRoute } from "../integrations/kan/config";
 
 /**
  * Builds the desired process list from config + dynamic agent/scraper discovery.
@@ -107,7 +108,12 @@ export function resolveManifest(
       const hasSharedTelegram =
         agent.default && Boolean(config.channels.telegram.botToken);
 
-      if (!agent.telegramBotToken && !ownsWhatsApp && !hasSharedTelegram) continue;
+      const hasKanPrivateChat =
+        agent.default &&
+        process.env.KAN_DM_ENABLED !== "0" &&
+        Boolean(process.env.KAN_DM_BOT_TOKEN || findKanPushRoute(undefined, "social-fusion")?.token || findKanPushRoute()?.token);
+
+      if (!agent.telegramBotToken && !ownsWhatsApp && !hasSharedTelegram && !hasKanPrivateChat) continue;
 
       specs.push({
         name: `agent:${agent.id}`,

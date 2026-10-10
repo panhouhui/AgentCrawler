@@ -12,6 +12,7 @@ import { loadConfigWithOverrides } from "../config/loader";
 import { createSubAgentTracker } from "../agents/tracker";
 import { createListSkillsTool } from "../tools/list-skills";
 import { createUseSkillTool } from "../tools/use-skill";
+import { createGlobalRadarTool } from "../tools/global-radar";
 import { readSkillContent } from "../skills/loader";
 import { getAgentMemories, formatMemoryBlock } from "../store/memory";
 import {
@@ -343,12 +344,18 @@ export async function bootstrap(
       }
     }
 
-    const basePrompt = [agentPrompt, memoryBlock, observationBlock]
+    const radarPrompt = agent.default || agent.id === "global-radar-assistant"
+      ? "You are the Global Radar assistant. You can query the unified social monitoring database with global_radar_query. Use that read-only tool for current events, evidence, propagation paths, delivery records, and monitor health. Keep each user conversation isolated and never expose credentials."
+      : "";
+    const basePrompt = [agentPrompt, radarPrompt, memoryBlock, observationBlock]
       .filter(Boolean)
       .join("\n\n");
     const systemPrompt = await enrichSystemPrompt(agent, basePrompt);
 
-    const reg = buildRegistryForAgent(agent, onProgress);
+    let reg = buildRegistryForAgent(agent, onProgress);
+    if (reg && (agent.default || agent.id === "global-radar-assistant")) {
+      reg = reg.withTools([createGlobalRadarTool()]);
+    }
     const iterations = agent.maxIterations ?? config.tools.maxIterations;
     const agentOpts = buildAgentOptions(
       { ...agent, systemPrompt },

@@ -81,4 +81,63 @@ describe("minimax-direct", () => {
     expect(capturedBody?.model).toBe("MiniMax-M2.7");
     expect(capturedBody?.system).toBe("system");
   });
+
+  test("retries when the upstream socket closes unexpectedly", async () => {
+    let attempts = 0;
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+      attempts += 1;
+      if (attempts === 1) {
+        throw new Error(
+          "The socket connection was closed unexpectedly. For more information, pass verbose: true in the second argument to fetch()",
+        );
+      }
+      return new Response(
+        JSON.stringify({ content: [{ type: "text", text: "recovered" }] }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof globalThis.fetch;
+
+    const result = await chat(
+      [{ role: "user", content: "hi", timestamp: 0 }],
+      baseOptions(),
+    );
+
+    expect(result.text).toBe("recovered");
+    expect(attempts).toBe(2);
+  });
+
+  test("stops after three attempts for repeated socket failures", async () => {
+    let attempts = 0;
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+      attempts += 1;
+      throw new Error("The socket connection was closed unexpectedly.");
+    }) as typeof globalThis.fetch;
+
+    await expect(chat([], baseOptions())).rejects.toThrow("socket connection was closed");
+    expect(attempts).toBe(3);
+  });
+
+  test("does not retry authentication failures", async () => {
+    let attempts = 0;
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+      attempts += 1;
+      return new Response(JSON.stringify({ error: { message: "Invalid API key" } }), { status: 401 });
+    }) as typeof globalThis.fetch;
+
+    await expect(chat([], baseOptions())).rejects.toThrow("401");
+    expect(attempts).toBe(1);
+  });
+
+  test("cancellation interrupts retry backoff", async () => {
+    let attempts = 0;
+    const controller = new AbortController();
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit): Promise<Response> => {
+      attempts += 1;
+      setTimeout(() => controller.abort(), 10);
+      throw new Error("The socket connection was closed unexpectedly.");
+    }) as typeof globalThis.fetch;
+
+    await expect(chat([], baseOptions({ abortSignal: controller.signal }))).rejects.toThrow("aborted");
+    expect(attempts).toBe(1);
+  });
 });

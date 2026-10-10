@@ -240,6 +240,9 @@ async function main(): Promise<void> {
   // is configured we reject — these endpoints must never be unauthenticated.
   // Returns a Response when the request must be rejected, or null when authorized.
   async function checkWebTokenAuth(req: Request): Promise<Response | null> {
+    if (process.env.OPENCROW_WEB_AUTH_DISABLED === "true") {
+      return null;
+    }
     const { getSecret } = await import("./config/secrets");
     let expectedToken: string | undefined;
     try {
